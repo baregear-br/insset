@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <string.h>
 
+vector emvec = {0, 0, 0};
 void vectorInit(vector* var, unsigned int length) {
     if (var->address)
         vectorDeleteAll(var);
@@ -32,7 +33,7 @@ void vectorInit(vector* var, unsigned int length) {
     var->sizePerBlks = length;
 }
 
-DYNVAR_CODE vectorAppend(vector* var, void* source) {
+DYNVAR_CODE vectorAppend(vector* var, lgr data) {
     if (!var->sizePerBlks)
         return ILVAR;
 
@@ -44,7 +45,7 @@ DYNVAR_CODE vectorAppend(vector* var, void* source) {
         var->address = (uintptr_t)frealloc((void*)var->address, (var->count - 1) * var->sizePerBlks, var->count * var->sizePerBlks);
     }
 
-    memcpy(VECTOR_FORMULA(var, var->count - 1), source, var->sizePerBlks);
+    memcpy(VECTOR_FORMULA(var, var->count - 1), (void*)data, var->sizePerBlks);
     return DYNVAR_SUCCESS;
 }
 
@@ -89,20 +90,42 @@ void vectorDeleteAll(vector* var) {
     var->count = 0;
 }
 
-void setValue(dynvar* var, char* value) {
+void setValue(dynvar* var, lgr value) {
+    size_t inputLength = strlen(value);
+    size_t copyLength = inputLength;
+
+    if (copyLength >= MAX_STACK_SIZE)
+        copyLength = MAX_STACK_SIZE - 1;
+
     if (var->address == 0)
-        var->address = (uintptr_t)falloc(NULL, strlen(value) + 1);
-    else if (strlen(value) > 0) {
-        var->address = (uintptr_t)frealloc((void*)var->address, var->length, strlen(value) + 1);
-        var->length = strlen(value);
-        memcpy((void*)var->address, (void*)value, strlen(value));
-    } else {
-        ffree((void*)var->address, var->length);
-        var->address = (uintptr_t)0;
-        var->length = 0;
+        var->address = (uintptr_t)falloc(NULL, copyLength + 1);
+    else if (copyLength + 1 > var->length) {
+        var->address = (uintptr_t)frealloc((void*)var->address, var->length, copyLength + 1);
     }
+
+    if (var->address != 0) {
+        if (copyLength > 0)
+            memcpy((void*)var->address, (void*)value, copyLength);
+        ((char*)var->address)[copyLength] = '\0';
+    }
+
+    var->length = (unsigned int)copyLength;
 }
 
-long* getValue(dynvar var) {
-    return var.length > 0 ? (unsigned long*)var.address : 0;
+void getValue(dynvar var, lgr out) {
+    size_t copyLength = var.length;
+
+    if (out == NULL)
+        return;
+
+    memset(out, 0, MAX_STACK_SIZE);
+    if (var.address == 0)
+        return;
+
+    if (copyLength >= MAX_STACK_SIZE)
+        copyLength = MAX_STACK_SIZE - 1;
+
+    if (copyLength > 0)
+        memcpy(out, (void*)var.address, copyLength);
+    out[copyLength] = '\0';
 }

@@ -22,6 +22,8 @@
 #include <stdint.h>
 
 #define VECTOR_FORMULA(var, idx)    ((void *)((char *)(var)->address + ((idx) * (var)->sizePerBlks)))
+#define MAX_STACK_SIZE (64 * 1024)
+typedef char lgr[MAX_STACK_SIZE];
 
 typedef struct {
     uintptr_t       address;
@@ -44,15 +46,16 @@ typedef enum {
 extern "C" {
 #endif
 
+extern vector emvec;
 extern void vectorInit(vector* var, unsigned int length);
-extern DYNVAR_CODE vectorAppend(vector* var, void* source);
+extern DYNVAR_CODE vectorAppend(vector* var, lgr source);
 extern long vectorGetValue(vector* var, int index);
 extern int vectorFind(vector* var, long value);
 extern DYNVAR_CODE vectorDelete(vector* var, int index);
 extern void vectorDeleteAll(vector* var);
 
-extern void setValue(dynvar* var, char* value);
-extern long* getValue(dynvar var);
+extern void setValue(dynvar* var, lgr value);
+extern void getValue(dynvar var, lgr out);
 
 #ifdef __cplusplus
 }

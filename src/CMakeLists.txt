@@ -28,14 +28,26 @@ add_custom_command(
 )
 
 # Create shared library from object file and C source
-add_library(insset SHARED ${CMAKE_CURRENT_BINARY_DIR}/runtime.o dynvar.c cominsset.c analyzer.c)
+add_library(insset SHARED ${CMAKE_CURRENT_BINARY_DIR}/runtime.o dynvar.c cominsset.c threading.c analyzer.cpp)
 
-# Link with LIEF and Capstone
+# Link with LIEF and LLVM
 target_link_libraries(insset PRIVATE
     ${LIEF_LIBRARY}
-    ${CAPSTONE_LIBRARIES}
+    pthread
+    -Wl,--start-group
+    /usr/lib/llvm-18/lib/libLLVMSupport.a
+    /usr/lib/llvm-18/lib/libLLVMMC.a
+    /usr/lib/llvm-18/lib/libLLVMMCDisassembler.a
+    /usr/lib/llvm-18/lib/libLLVMObject.a
+    /usr/lib/llvm-18/lib/libLLVMBinaryFormat.a
+    /usr/lib/llvm-18/lib/libLLVMTarget.a
+    /usr/lib/llvm-18/lib/libLLVMTargetParser.a
+    /usr/lib/llvm-18/lib/libLLVMX86Info.a
+    /usr/lib/llvm-18/lib/libLLVMX86Desc.a
+    /usr/lib/llvm-18/lib/libLLVMX86Disassembler.a
+    -Wl,--end-group
 )
-target_include_directories(insset PRIVATE ${LIEF_INCLUDE_DIR})
+target_include_directories(insset PRIVATE ${LIEF_INCLUDE_DIR} /usr/lib/llvm-18/include)
 
 # Set optimization flags for maximum speed and lowest latency
 target_compile_options(insset PRIVATE

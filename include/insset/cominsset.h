@@ -20,6 +20,7 @@
 #define COMINSSET_H
 
 #include <stdint.h>
+#include <dynvar.h>
 
 // LLVM supported architectures enum
 typedef enum {
@@ -70,29 +71,128 @@ typedef enum {
 } LLVMArch;
 
 typedef enum {
-    SUCCESS,
-    BUFFER_OVERFLOW,
-    BUFFER_UNDERFLOW,
+    PROC_SUCCESS,
+    PROC_BUFFER_OVERFLOW,
+    PROC_BUFFER_UNDERFLOW,
     INVALID_INSTRUCTION,
     INVALID_REGISTER,
     INVALID_ADDRESS,
-    DIVISION_BY_ZERO,
+    PROC_DIVISION_BY_ZERO,
     PRIVILEGED_INSTRUCTION,
     PAGE_FAULT,
-    SEGMENTATION_FAULT,
+    PROC_SEGMENTATION_FAULT,
     ALIGNMENT_ERROR,
     FLOATING_POINT_ERROR,
     INTERRUPT,
     HALT,
-    TIMEOUT,
+    PROC_TIMEOUT,
     INVALID_OPERAND,
-    STACK_OVERFLOW,
-    STACK_UNDERFLOW,
+    PROC_STACK_OVERFLOW,
+    PROC_STACK_UNDERFLOW,
     PROTECTION_FAULT,
     GENERAL_PROTECTION_FAULT,
-    UNKNOWN_ERROR,
+    PROC_UNKNOWN_ERROR,
     NOT_INITIALIZED
 } ProcessorResult;
+
+typedef enum {
+    NOP,
+    MOV,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    MOD,
+    INC,
+    DEC,
+    AND,
+    OR,
+    XOR,
+    NOT,
+    SHL,
+    SHR,
+    CMP,
+    TEST,
+    JMP,
+    JE,
+    JNE,
+    JG,
+    JGE,
+    JL,
+    JLE,
+    JA,
+    JAE,
+    JB,
+    JBE,
+    JO,
+    JNO,
+    JS,
+    JNS,
+    CALL,
+    RET,
+    PUSH,
+    POP,
+    LEA,
+    XCHG,
+    IMUL,
+    IDIV,
+    NEG,
+    ROL,
+    ROR,
+    RCL,
+    RCR,
+    SAR,
+    SHLD,
+    SHRD,
+    LOOP,
+    LOOPE,
+    LOOPNE,
+    INT,
+    SYSCALL,
+    SYSENTER,
+    SYSEXIT,
+    CLD,
+    STD,
+    CLTD,
+    CQO,
+    CBW,
+    CWDE,
+    CDQE,
+    LEAVE,
+    ENTER,
+    LDS,
+    LES,
+    LFS,
+    LGS,
+    LSS,
+    MOVSB,
+    MOVSW,
+    MOVSD,
+    MOVSQ,
+    LODSB,
+    LODSW,
+    LODSD,
+    LODSQ,
+    STOSB,
+    STOSW,
+    STOSD,
+    STOSQ,
+    SCASB,
+    SCASW,
+    SCASD,
+    SCASQ,
+    CMPSB,
+    CMPSW,
+    CMPSD,
+    CMPSQ,
+    REP,
+    REPE,
+    REPNE,
+    LOCK,
+    XADD,
+    CMPXCHG,
+    UNKNOWN_OP
+} CommonOperator;
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,36 +201,36 @@ extern "C" {
 extern uintptr_t registers;
 extern int reglen;
 
-extern void init(LLVMArch arch);
+extern void cinit(LLVMArch arch);
 extern ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                            uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                            vector eops, vector eopslen);
 extern ProcessorResult add(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                    vector eops, vector eopslen);
 extern ProcessorResult subtract(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                    vector eops, vector eopslen);
 extern ProcessorResult multiply(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                    vector eops, vector eopslen);
 extern ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                    vector eops, vector eopslen);
 extern ProcessorResult compare(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                              uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                              vector eops, vector eopslen);
 extern ProcessorResult increment(uintptr_t left, unsigned int loplen);
 extern ProcessorResult decrement(uintptr_t left, unsigned int loplen);
 extern ProcessorResult lgAnd(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                            uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                            vector eops, vector eopslen);
 extern ProcessorResult lgOr(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                           uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                           vector eops, vector eopslen);
 extern ProcessorResult lgXor(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                           uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                           vector eops, vector eopslen);
 extern ProcessorResult lgNot(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                           uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                           vector eops, vector eopslen);
 extern ProcessorResult shift_left(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen);
 extern ProcessorResult shift_right(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen);
 extern ProcessorResult push(uintptr_t left, unsigned int loplen);
 extern ProcessorResult pop(uintptr_t left, unsigned int loplen);
 extern ProcessorResult load_effective_address(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen);
 extern ProcessorResult test_and(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                               uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen);
+                               vector eops, vector eopslen);
 #ifdef __cplusplus
 }
 #endif
