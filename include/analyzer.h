@@ -19,6 +19,8 @@
 #ifndef ANALYZER_H
 #define ANALYZER_H
 
+#include <dynvar.h>
+
 typedef enum {
     // Memory & Bounds Safety
     BUFFER_OVERFLOW,

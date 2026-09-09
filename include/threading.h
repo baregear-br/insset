@@ -16,22 +16,33 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef RUNTIME_H
-#define RUNTIME_H
+#ifndef THREADING_H
+#define THREADING_H
 
-#include <stddef.h>
+#include <stdbool.h>
+
+/* enum {
+    THREAD_STATE_NEW,        // Thread is created but not started
+    THREAD_STATE_READY,      // Thread is waiting for a CPU core
+    THREAD_STATE_RUNNING,    // Thread is actively executing code
+    THREAD_STATE_BLOCKED,    // Thread is waiting on I/O or a Mutex
+    THREAD_STATE_FINISHED,   // Thread has completed its execution
+    THREAD_STATE_ERROR       // Thread crashed or failed to initialize
+}; */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void* falloc(void* address, size_t length);
-void* frealloc(void* old_address, size_t old_size, size_t new_size);
-int ffree(void* address, size_t length);
-void exit(int code);
+extern void threadingInit();
+extern int threadNew(void callback(void*), ...);
+extern int threadJoin(int threadId);
+extern int threadDetach(int threadId);
+extern bool threadIsRunning(int threadId);
+extern void threadCleanup();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // RUNTIME_H
+#endif // THREADING_H

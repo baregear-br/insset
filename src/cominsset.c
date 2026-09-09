@@ -35,7 +35,7 @@ bool isInit = false;
 extern void expect(dynvar);
 LLVMArch carch;
 
-void init(LLVMArch arch) {
+void cinit(LLVMArch arch) {
     if (isInit)
         return;
 
@@ -56,7 +56,7 @@ void init(LLVMArch arch) {
 }
 
 ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                     uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                     vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -68,7 +68,7 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
             x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         if (loplen < roplen)
-            return BUFFER_OVERFLOW;
+            return PROC_BUFFER_OVERFLOW;
 
         uintptr_t tmp = (uintptr_t)falloc(NULL, loplen);
         if(!tmp) {
@@ -88,7 +88,7 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
             x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         if (loplen < roplen)
-            return BUFFER_OVERFLOW;
+            return PROC_BUFFER_OVERFLOW;
 
         uintptr_t tmp = (uintptr_t)falloc(NULL, loplen);
         if(!tmp) {
@@ -102,11 +102,11 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult add(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                    vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -314,11 +314,11 @@ ProcessorResult add(uintptr_t left, unsigned int loplen, uintptr_t right, int ro
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult subtract(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                    vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -524,11 +524,11 @@ ProcessorResult subtract(uintptr_t left, unsigned int loplen, uintptr_t right, i
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult multiply(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                    vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -736,11 +736,11 @@ ProcessorResult multiply(uintptr_t left, unsigned int loplen, uintptr_t right, i
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                    uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                    vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -753,13 +753,13 @@ ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int
         
         // Check for division by zero
         if ((roplen == 1 && *(uint8_t*)right == 0) || (loplen == 1 && *(uint8_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         else if ((roplen == 2 && *(uint16_t*)right == 0) || (loplen == 1 && *(uint16_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         else if ((roplen == 4 && *(uint32_t*)right == 0) || (loplen == 1 && *(uint32_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         else if ((roplen == 8 && *(uint64_t*)right == 0) || (loplen == 1 && *(uint64_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         
         // Perform division based on operand size
         uint64_t result = 0;
@@ -832,13 +832,13 @@ ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int
 
         // Check for division by zero
         if ((roplen == 1 && *(uint8_t*)right == 0) || (loplen == 1 && *(uint8_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         else if ((roplen == 2 && *(uint16_t*)right == 0) || (loplen == 1 && *(uint16_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         else if ((roplen == 4 && *(uint32_t*)right == 0) || (loplen == 1 && *(uint32_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
         else if ((roplen == 8 && *(uint64_t*)right == 0) || (loplen == 1 && *(uint64_t*)left == 0))
-            return DIVISION_BY_ZERO;
+            return PROC_DIVISION_BY_ZERO;
 
         // Perform division based on operand size
         uint64_t result = 0;
@@ -904,11 +904,11 @@ ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult compare(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                        uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                        vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -1106,7 +1106,7 @@ ProcessorResult compare(uintptr_t left, unsigned int loplen, uintptr_t right, in
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult increment(uintptr_t left, unsigned int loplen) {
@@ -1277,7 +1277,7 @@ ProcessorResult increment(uintptr_t left, unsigned int loplen) {
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult decrement(uintptr_t left, unsigned int loplen) {
@@ -1448,11 +1448,11 @@ ProcessorResult decrement(uintptr_t left, unsigned int loplen) {
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult lgAnd(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                           uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                           vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -1588,11 +1588,11 @@ ProcessorResult lgAnd(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult lgOr(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                          uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                          vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -1728,11 +1728,11 @@ ProcessorResult lgOr(uintptr_t left, unsigned int loplen, uintptr_t right, int r
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult lgXor(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                           uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                           vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -1868,11 +1868,11 @@ ProcessorResult lgXor(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult lgNot(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                           uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                           vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -1996,7 +1996,7 @@ ProcessorResult lgNot(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult shift_left(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen) {
@@ -2233,7 +2233,7 @@ ProcessorResult shift_left(uintptr_t left, unsigned int loplen, uintptr_t right,
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult shift_right(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen) {
@@ -2470,7 +2470,7 @@ ProcessorResult shift_right(uintptr_t left, unsigned int loplen, uintptr_t right
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult push(uintptr_t left, unsigned int loplen) {
@@ -2529,7 +2529,7 @@ ProcessorResult push(uintptr_t left, unsigned int loplen) {
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult pop(uintptr_t left, unsigned int loplen) {
@@ -2587,7 +2587,7 @@ ProcessorResult pop(uintptr_t left, unsigned int loplen) {
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult load_effective_address(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen) {
@@ -2623,11 +2623,11 @@ ProcessorResult load_effective_address(uintptr_t left, unsigned int loplen, uint
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
 
 ProcessorResult test_and(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen,
-                         uintptr_t ex0, unsigned int ex0oplen, uintptr_t ex1, unsigned int ex1oplen) {
+                         vector eop, vector eoplen) {
     if (!isInit)
         return NOT_INITIALIZED;
     
@@ -2755,5 +2755,5 @@ ProcessorResult test_and(uintptr_t left, unsigned int loplen, uintptr_t right, i
     } else
         bugDetected("Unknown Archtecture");
     
-    return SUCCESS;
+    return PROC_SUCCESS;
 }
