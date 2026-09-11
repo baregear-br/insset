@@ -26,6 +26,7 @@
 typedef enum {
     x86,           // 32-bit x86
     x86_64,        // 64-bit x86 (AMD64/Intel64)
+    i8086,
     arm,           // 32-bit ARM
     aarch64,       // 64-bit ARM (ARM64)
     mips,          // 32-bit MIPS

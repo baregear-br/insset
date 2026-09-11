@@ -8,6 +8,7 @@ endif()
 
 project(insset)
 set(APP_VERSION 1.0)
+set(CMAKE_CXX_STANDARD 20)
 
 find_package(PkgConfig REQUIRED)
 find_library(LIEF_LIBRARY NAMES LIEF PATHS /usr/lib NO_DEFAULT_PATH)

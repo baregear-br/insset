@@ -30,6 +30,11 @@
     THREAD_STATE_ERROR       // Thread crashed or failed to initialize
 }; */
 
+typedef struct {
+    void* originalArg;
+    int threadId;
+} ThreadCallbackArgs;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
