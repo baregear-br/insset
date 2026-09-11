@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
     void (*callback)(void*);
     void* arg;
+    int threadId;
     va_list args;
 } ThreadArgs;
 
@@ -45,7 +46,10 @@ void threadingInit() {
 
 static void* threadWrapper(void* arg) {
     ThreadArgs* threadArgs = (ThreadArgs*)arg;
-    threadArgs->callback(threadArgs->arg);
+    ThreadCallbackArgs callbackArgs;
+    callbackArgs.originalArg = threadArgs->arg;
+    callbackArgs.threadId = threadArgs->threadId;
+    threadArgs->callback(&callbackArgs);
     ffree(threadArgs, sizeof(ThreadArgs));
     return NULL;
 }
@@ -60,6 +64,7 @@ int threadNew(void callback(void*), ...) {
 
     args->callback = callback;
     args->arg = NULL;
+    args->threadId = info.id;
 
     va_list va;
     va_start(va, callback);
@@ -69,7 +74,7 @@ int threadNew(void callback(void*), ...) {
         args->arg = arg;
     va_end(va);
 
-    int result = pthread_create(&info.thread, NULL, threadWrapper, args);
+    int result = pthread_create(&info.thread, NULL, (void* (*)(void*))threadWrapper, args);
     if (result != 0) {
         ffree(args, sizeof(ThreadArgs));
         return -1;

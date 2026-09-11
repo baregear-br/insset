@@ -69,15 +69,21 @@ struct ValueNode : AST {
 };
 
 typedef struct {
+    ProcessorResult res;
+    AST* operation;
+} OperationResult;
+
+typedef struct {
     InstructionNode* node;
     AST* targvar;
 } InstructionQueue;
 
 static vector instructionQueues;
 static vector executionTasks;
-std::map<AST*, bool> cachedSteps;
-static bool isLocked = false;
+std::map<AST*, std::pair<bool, int>> cachedSteps;
+static int lockout = -1;
 static LLVMArch carch;
+static vector processorResults;
 
 dynvar evalResult(AST* node) {
     dynvar result;
@@ -89,21 +95,231 @@ dynvar evalResult(AST* node) {
             switch (carch) {
                 case x86_64:
                 case x86:
+                case i8086:
                     if (instr->operand->count != 2) {
                         std::cerr << "Ilegal Instruction." << std::endl;
                         exit(1);
                     }
+                    const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
+                                  (carch == x86 ? 2147483647 : 32767);
                     lgr leftOp;
                     getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
                     lgr rightOp;
                     getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
 
-                    if (carch == x86 && ((int32_t)((uintptr_t)leftOp) > 2147483647 || (int32_t)((uintptr_t)rightOp) > 2147483647))
-                        return result; // Will Be Implemented
+                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
+                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
 
-                    add((uintptr_t)leftOp, sizeof(leftOp), (uintptr_t)rightOp, sizeof(rightOp),
-                        emvec, emvec);
-                    break;
+                    const ProcessorResult pres = add((uintptr_t)leftOp, sizeof(leftOp),
+                                                 (uintptr_t)rightOp, sizeof(rightOp),
+                                            emvec, emvec);
+                    if ((int64_t)leftOp > maxCalcValue) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    OperationResult res;
+                    res.operation = node;
+                    res.res = pres;
+                    lgr bufr;
+                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                    vectorAppend(&processorResults, bufr);
+
+                    if (pres != PROC_SUCCESS)
+                        return result;
+                    setValue(&result, leftOp);
+                    return result;
+
+                /* default:
+                    bugDetected("The Specified Architecture Is Not Supported"); */
+            }
+        } else if (instr->ioperator == SUB) {
+            switch (carch) {
+                case x86_64:
+                case x86:
+                case i8086:
+                    if (instr->operand->count != 2) {
+                        std::cerr << "Ilegal Instruction." << std::endl;
+                        exit(1);
+                    }
+                    const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
+                                  (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOp;
+                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    lgr rightOp;
+                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+
+                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
+                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    const ProcessorResult pres = subtract((uintptr_t)leftOp,
+                        sizeof(leftOp), (uintptr_t)rightOp, sizeof(rightOp),
+                                     emvec, emvec);
+                    if (((int64_t)leftOp > maxCalcValue) ||
+                        ((int64_t)leftOp > (maxCalcValue * -1))) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    OperationResult res;
+                    res.operation = node;
+                    res.res = pres;
+                    lgr bufr;
+                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                    vectorAppend(&processorResults, bufr);
+
+                    if (pres != PROC_SUCCESS)
+                        return result;
+                    setValue(&result, leftOp);
+                    return result;
+
+                /* default:
+                    bugDetected("The Specified Architecture Is Not Supported"); */
+            }
+        } else if (instr->ioperator == MUL) {
+            switch (carch) {
+                case x86_64:
+                case x86:
+                case i8086:
+                    if (instr->operand->count != 2) {
+                        std::cerr << "Ilegal Instruction." << std::endl;
+                        exit(1);
+                    }
+                    const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
+                                  (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOp;
+                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    lgr rightOp;
+                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+
+                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
+                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    const ProcessorResult pres = multiply((uintptr_t)leftOp, sizeof(leftOp),
+                                                 (uintptr_t)rightOp, sizeof(rightOp),
+                                            emvec, emvec);
+                    if ((int64_t)leftOp > maxCalcValue) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    OperationResult res;
+                    res.operation = node;
+                    res.res = pres;
+                    lgr bufr;
+                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                    vectorAppend(&processorResults, bufr);
+
+                    if (pres != PROC_SUCCESS)
+                        return result;
+                    setValue(&result, leftOp);
+                    return result;
+
+                /* default:
+                    bugDetected("The Specified Architecture Is Not Supported"); */
+            }
+        } else if (instr->ioperator == DIV) {
+            switch (carch) {
+                case x86_64:
+                case x86:
+                case i8086:
+                    if (instr->operand->count != 2) {
+                        std::cerr << "Ilegal Instruction." << std::endl;
+                        exit(1);
+                    }
+                    const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
+                                  (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOp;
+                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    lgr rightOp;
+                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+
+                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
+                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    } else if ((int32_t)((uintptr_t)leftOp) == 0 || (int32_t)((uintptr_t)rightOp) == 0) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_DIVISION_BY_ZERO;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    const ProcessorResult pres = divide((uintptr_t)leftOp,
+                        sizeof(leftOp), (uintptr_t)rightOp, sizeof(rightOp),
+                                     emvec, emvec);
+                    if (((int64_t)leftOp > maxCalcValue) ||
+                        ((int64_t)leftOp > (maxCalcValue * -1))) {
+                        OperationResult res;
+                        res.operation = node;
+                        res.res = PROC_BUFFER_OVERFLOW;
+                        lgr bufr;
+                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                        vectorAppend(&processorResults, bufr);
+                        return result;
+                    }
+
+                    OperationResult res;
+                    res.operation = node;
+                    res.res = pres;
+                    lgr bufr;
+                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                    vectorAppend(&processorResults, bufr);
+
+                    if (pres != PROC_SUCCESS)
+                        return result;
+                    setValue(&result, leftOp);
+                    return result;
+
+                /* default:
+                    bugDetected("The Specified Architecture Is Not Supported"); */
             }
         }
     } else if (auto valNode = dynamic_cast<ValueNode*>(node))
@@ -113,25 +329,35 @@ dynvar evalResult(AST* node) {
 }
 
 void handleRealtimeOperation(void* arg) {
-    InstructionQueue* queue = (InstructionQueue*)arg;
-    bool locked = false;
+    ThreadCallbackArgs* callbackArgs = (ThreadCallbackArgs*)arg;
+    InstructionQueue* queue = (InstructionQueue*)callbackArgs->originalArg;
+    const int threadId = callbackArgs->threadId;
+    int idx;
     while (true) {
-        isLocked = true;
-        std::map<AST*, bool> currentSteps = cachedSteps;
-        isLocked = false;
-        for (auto [cachedStep, locked] : currentSteps) {
+        while (lockout != threadId) usleep(2000);
+        lockout = threadId;
+        if (cachedSteps.contains((AST*)queue))
+            cachedSteps.find((AST*)queue)->second.second = threadId;
+        std::map<AST*, std::pair<bool, int>> currentSteps = cachedSteps;
+        lockout = -1;
+        idx = 0;
+        for (auto [cachedStep, stepInfo] : currentSteps) {
+            auto [locked, stepThreadId] = stepInfo;
             if (auto instr = dynamic_cast<InstructionQueue*>(cachedStep))
                 if (instr->targvar == queue->targvar) {
-                    locked = true;
+                    while (locked) {
+                        locked = std::next(cachedSteps.begin(), idx)->second.first;
+                        usleep(2000);
+                    }
                     goto finalStep;
                 }
+            idx++;
         }
         usleep(2000);
     }
 
 finalStep:
-
-    isLocked = false;
+    lockout = -1;
 }
 
 CommonOperator mapLLVMOpcodeToOperator(unsigned opcode, const llvm::MCInstrInfo* MII) {
@@ -266,6 +492,7 @@ extern "C" {
     void init(LLVMArch arch) {
         vectorInit(&instructionQueues, sizeof(int));
         vectorInit(&executionTasks, sizeof(int));
+        vectorInit(&processorResults, sizeof(OperationResult));
     }
 
     analyzedResult analyzeFunction(dynvar functionName, dynvar source) {
