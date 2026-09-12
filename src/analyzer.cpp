@@ -102,10 +102,14 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOpBuffer;
+                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    lgr rightOpBuffer;
+                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -157,10 +161,14 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOpBuffer;
+                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    lgr rightOpBuffer;
+                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -213,10 +221,14 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOpBuffer;
+                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    lgr rightOpBuffer;
+                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -268,10 +280,14 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    lgr leftOpBuffer;
+                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 0)), leftOp);
+                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    lgr rightOpBuffer;
+                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)vectorGetValue(instr->operand, 1)), rightOp);
+                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -503,8 +519,8 @@ extern "C" {
         uintptr_t currentFunction;
 
         vectorInit(&pushedFunction, sizeof(currentFunction));
-        static char bufr[MAX_STACK_SIZE] = {0};
-        getValue(source, bufr);
+        static lgr bufr = {0};
+        getValue(source, &bufr);
         std::unique_ptr<LIEF::ELF::Binary> bin = LIEF::ELF::Parser::parse(bufr);
         if (!bin) {
             std::cerr << "Cannot Analyze The Library From " << bufr << std::endl;
@@ -517,11 +533,11 @@ extern "C" {
             return result;
         }
 
-        getValue(functionName, bufr);
+        getValue(functionName, &bufr);
         auto* sym = bin->get_symbol(bufr);
         if (!sym) {
-            char libpath[MAX_STACK_SIZE] = {0};
-            getValue(source, libpath);
+            lgr libpath = {0};
+            getValue(source, &libpath);
             std::cerr << bufr << " Is Not Found From " << libpath
                       << " But Required." << std::endl;
             exit(1);
@@ -574,14 +590,14 @@ extern "C" {
         std::string sbufr;
         {
             lgr bufr;
-            getValue(source, bufr);
+            getValue(source, &bufr);
             sbufr = bufr;
         }
 
         std::ifstream file(sbufr);
         if (!file.is_open()) {
-            char libpath[MAX_STACK_SIZE] = {0};
-            getValue(source, libpath);
+            lgr libpath = {0};
+            getValue(source, &libpath);
             std::cerr << "Cannot Open " << sbufr << " But Required." << std::endl;
             exit(1);
         }
@@ -645,7 +661,9 @@ extern "C" {
                     instrNode->operand->count > 0) {
                     InstructionQueue inqueue;
                     inqueue.node = instrNode;
-                    AST* tvar = (AST*)vectorGetValue(instrNode->operand, 0);
+                    lgr tvarBuffer;
+                    vectorGetValue(instrNode->operand, 0, &tvarBuffer);
+                    AST* tvar = (AST*)tvarBuffer;
                     inqueue.targvar = tvar;
                     int threadID = threadNew(handleRealtimeOperation, &inqueue);
                     if (threadID < 0)
