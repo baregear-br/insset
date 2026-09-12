@@ -8,40 +8,11 @@ endif()
 
 project(insset)
 set(APP_VERSION 1.0)
-set(CMAKE_CXX_STANDARD 20)
 
 find_package(PkgConfig REQUIRED)
-
-# Find LLVM for disassembly and ELF parsing
-find_package(LLVM 18.1 REQUIRED CONFIG)
-message(STATUS "LLVM version: ${LLVM_PACKAGE_VERSION}")
-message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
-include_directories(${LLVM_INCLUDE_DIRS})
-include_directories(/usr/lib/llvm-18/include)
-add_definitions(${LLVM_DEFINITIONS})
-llvm_map_components_to_libnames(LLVM_LIBS
-    Support
-    MC
-    MCDisassembler
-    Object
-    BinaryFormat
-    Target
-    TargetParser
-    X86Info
-    X86Desc
-    X86Disassembler
-)
-
-find_program(SPHINX_EXECUTABLE sphinx-build)
-if(SPHINX_EXECUTABLE)
-    add_custom_target(docs
-            COMMAND ${SPHINX_EXECUTABLE} -b html ${CMAKE_SOURCE_DIR}/docs ${CMAKE_BINARY_DIR}/docs
-            COMMENT "Building documentation with Sphinx"
-            VERBATIM
-    )
-else()
-    message(WARNING "Sphinx not found. Documentation target will not be available.")
-endif()
-
+pkg_check_modules(LIEF REQUIRED IMPORTED_TARGET lief)
+pkg_check_modules(CAPSTONE REQUIRED capstone)
+include_directories(${CAPSTONE_INCLUDE_DIRS})
 include_directories(include)
+
 add_subdirectory(src)

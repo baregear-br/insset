@@ -19,6 +19,14 @@
 #ifndef DEFINATIONS_H
 #define DEFINATIONS_H
 
-extern void bugDetected(char* message);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void bugDetected(const char* message);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // DEFINATIONS_H

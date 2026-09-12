@@ -14,7 +14,7 @@ CMakeUserPresets.json
 *_audio.h
 
 # Compiled Binary
-baregear
+insset
 *.so
 *.dll
 *.exe
