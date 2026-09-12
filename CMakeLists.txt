@@ -11,13 +11,8 @@ set(APP_VERSION 1.0)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(PkgConfig REQUIRED)
-find_library(LIEF_LIBRARY NAMES LIEF PATHS /usr/lib NO_DEFAULT_PATH)
-find_path(LIEF_INCLUDE_DIR NAMES LIEF/LIEF.hpp PATHS /usr/include NO_DEFAULT_PATH)
-if(NOT LIEF_LIBRARY OR NOT LIEF_INCLUDE_DIR)
-    message(FATAL_ERROR "LIEF library not found")
-endif()
 
-# Find LLVM for disassembly
+# Find LLVM for disassembly and ELF parsing
 find_package(LLVM 18.1 REQUIRED CONFIG)
 message(STATUS "LLVM version: ${LLVM_PACKAGE_VERSION}")
 message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")

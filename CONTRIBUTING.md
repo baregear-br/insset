@@ -15,25 +15,25 @@ Note: Rich Text Documentation Is Located On `build/docs`
 ```
 insset/
 ├── CMakeLists.txt                    # Root CMake build configuration
-├── README.md                         # Project overview and documentation
-├── CONTRIBUTING.md                   # This file - contribution guidelines
+├── README.md                         # Project overview
+├── CONTRIBUTING.md                   # This file
 ├── include/                          # Public header files
-│   ├── analyzer.h                   # Binary analysis framework and fault detection
+│   ├── analyzer.h                    # Binary analysis framework and fault detection
 │   ├── definations.h                 # Common definitions and error handling
-│   ├── dynvar.h                     # Dynamic variable and vector data structures
-│   ├── runtime.h                    # Runtime memory management functions
-│   ├── threading.h                  # Threading and concurrency utilities
-│   └── insset/                      # Architecture-specific instruction set definitions
-│       ├── cominsset.h              # Common instruction set operators and enums
-│       ├── x86.h                    # x86 (32-bit) register structures and setup
-│       └── x86_64.h                 # x86-64 (64-bit) register structures and setup
-└── src/                             # Implementation files
-    ├── CMakeLists.txt               # Source-level CMake configuration
-    ├── analyzer.cpp                 # Binary analysis using LLVM and LIEF
-    ├── cominsset.c                  # Common instruction implementations (ADD, SUB, MUL, etc.)
-    ├── dynvar.c                     # Dynamic variable and vector implementation
-    ├── runtime.asm                  # Low-level memory management (mmap/mremap/munmap)
-    └── threading.c                  # POSIX threading wrapper implementation
+│   ├── dynvar.h                      # Dynamic variable and vector data structures
+│   ├── runtime.h                     # Runtime memory management functions
+│   ├── threading.h                   # Threading and concurrency utilities
+│   └── insset/                       # Architecture-specific instruction set definitions
+│       ├── cominsset.h               # Common instruction set operators and enums
+│       ├── x86.h                     # x86 (32-bit) register structures and setup
+│       └── x86_64.h                  # x86-64 (64-bit) register structures and setup
+└── src/                              # Implementation files
+    ├── CMakeLists.txt                # Source-level CMake configuration
+    ├── analyzer.cpp                  # Binary analysis using LLVM and LIEF
+    ├── cominsset.c                   # Common instruction implementations (ADD, SUB, MUL, etc.)
+    ├── dynvar.c                      # Dynamic variable and vector implementation
+    ├── runtime.asm                   # Low-level memory management (mmap/mremap/munmap)
+    └── threading.c                   # POSIX threading wrapper implementation
 ```
 
 ## File Descriptions
