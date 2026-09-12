@@ -93,6 +93,7 @@ typedef enum {
     PROTECTION_FAULT,
     GENERAL_PROTECTION_FAULT,
     PROC_UNKNOWN_ERROR,
+    PROC_NOT_FOUND,
     NOT_INITIALIZED
 } ProcessorResult;
 

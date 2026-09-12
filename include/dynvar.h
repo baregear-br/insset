@@ -39,7 +39,9 @@ typedef struct {
 typedef enum {
     DYNVAR_SUCCESS,
     ILVAR,
-    BFROVRFLW
+    BFROVRFLW,
+    NOT_FOUND,
+    OOM
 } DYNVAR_CODE;
 
 #ifdef __cplusplus
@@ -49,13 +51,13 @@ extern "C" {
 extern vector emvec;
 extern void vectorInit(vector* var, unsigned int length);
 extern DYNVAR_CODE vectorAppend(vector* var, lgr source);
-extern long vectorGetValue(vector* var, int index);
-extern int vectorFind(vector* var, long value);
+extern DYNVAR_CODE vectorGetValue(vector* var, int index, lgr* result);
+extern int vectorFind(vector* var, lgr value);
 extern DYNVAR_CODE vectorDelete(vector* var, int index);
 extern void vectorDeleteAll(vector* var);
 
-extern void setValue(dynvar* var, lgr value);
-extern void getValue(dynvar var, lgr out);
+extern DYNVAR_CODE setValue(dynvar* var, lgr value);
+extern void getValue(dynvar var, lgr* out);
 
 #ifdef __cplusplus
 }

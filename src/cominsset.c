@@ -34,11 +34,18 @@ int reglen;
 bool isInit = false;
 extern void expect(dynvar);
 LLVMArch carch;
+vector pushedItems;
+
+typedef struct {
+    uintptr_t address;
+    vector backups;
+} PushedItem;
 
 void cinit(LLVMArch arch) {
     if (isInit)
         return;
 
+    vectorInit(&pushedItems, sizeof(PushedItem));
     carch = arch;
     if (arch == x86_64) {
         reglen = sizeof(x86_64_Registers);
@@ -2476,58 +2483,22 @@ ProcessorResult shift_right(uintptr_t left, unsigned int loplen, uintptr_t right
 ProcessorResult push(uintptr_t left, unsigned int loplen) {
     if (!isInit)
         return NOT_INITIALIZED;
-    
-    if (carch == x86_64) {
-        x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        
-        // Get value to push
-        uint64_t value = 0;
-        if (loplen == 1)
-            value = *(uint8_t*)left;
-        else if (loplen == 2)
-            value = *(uint16_t*)left;
-        else if (loplen == 4)
-            value = *(uint32_t*)left;
-        else if (loplen == 8)
-            value = *(uint64_t*)left;
-        
-        // Decrement stack pointer and push value (push is always 8 bytes in 64-bit mode)
-        regs->rsp -= 8;
-        *(uint64_t*)(regs->rsp) = value;
-        
-        // PUSH does not affect flags in x86
-    }
-    else if (carch == x86) {
-        x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
 
-        // Get value to push
-        uint64_t value = 0;
-        if (loplen == 1)
-            value = *(uint8_t*)left;
-        else if (loplen == 2)
-            value = *(uint16_t*)left;
-        else if (loplen == 4)
-            value = *(uint32_t*)left;
-        else if (loplen == 8)
-            value = *(uint64_t*)left;
-        
-        // Decrement stack pointer and push value (push size depends on operand size in 32-bit mode)
-        if (loplen == 2) {
-            regs->esp -= 2;
-            *(uint16_t*)(regs->esp) = (uint16_t)value;
-        } else {
-            // Default to 4 bytes for 32-bit mode
-            regs->esp -= 4;
-            *(uint32_t*)(regs->esp) = (uint32_t)value;
-        }
-        
-        // PUSH does not affect flags in x86
-    } else
-        bugDetected("Unknown Archtecture");
+    dynvar bufr;
+    lgr val;
+    memcpy(val, (void*)left, loplen);
+    setValue(&bufr, val);
+    for (int i; i > strlen(val); i++)
+        val[i] = 0;
+
+    PushedItem item;
+    item.address = left;
+    vectorInit(&item.backups, sizeof(lgr));
+    getValue(bufr, &val);
+    if (vectorAppend(&item.backups, val) == OOM) {
+        fprintf(stderr, "Not Enough Memory For Backup %li.", (uintptr_t)left);
+        exit(1);
+    }
     
     return PROC_SUCCESS;
 }
@@ -2535,59 +2506,26 @@ ProcessorResult push(uintptr_t left, unsigned int loplen) {
 ProcessorResult pop(uintptr_t left, unsigned int loplen) {
     if (!isInit)
         return NOT_INITIALIZED;
-    
-    if (carch == x86_64) {
-        x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        
-        // Pop value from stack (pop is always 8 bytes in 64-bit mode)
-        uint64_t value = *(uint64_t*)(regs->rsp);
-        regs->rsp += 8;
-        
-        // Store value in destination
-        if (loplen == 1)
-            *(uint8_t*)left = (uint8_t)value;
-        else if (loplen == 2)
-            *(uint16_t*)left = (uint16_t)value;
-        else if (loplen == 4)
-            *(uint32_t*)left = (uint32_t)value;
-        else if (loplen == 8)
-            *(uint64_t*)left = value;
-        
-        // POP does not affect flags in x86
-    }
-    else if (carch == x86) {
-        x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
 
-        // Pop value from stack (pop size depends on operand size in 32-bit mode)
-        uint64_t value = 0;
-        if (loplen == 2) {
-            value = *(uint16_t*)(regs->esp);
-            regs->esp += 2;
-        } else {
-            // Default to 4 bytes for 32-bit mode
-            value = *(uint32_t*)(regs->esp);
-            regs->esp += 4;
+    int i = 0;
+    for (; i < pushedItems.count; i++) {
+        lgr bufr;
+        PushedItem* citem;
+        vectorGetValue(&pushedItems, i, &bufr);
+        citem = (PushedItem*)bufr;
+        if (citem->address == (uintptr_t)left) {
+            if (citem->backups.count == 0)
+                return PROC_NOT_FOUND;
+            vectorGetValue(&citem->backups, citem->backups.count - 1, &bufr);
+            if (strlen(bufr) > loplen)
+                return PROC_BUFFER_OVERFLOW;
+            memcpy((void*)left, bufr, loplen);
+            vectorDelete(&citem->backups, citem->backups.count - 1);
+            return PROC_SUCCESS;
         }
-        
-        // Store value in destination
-        if (loplen == 1)
-            *(uint8_t*)left = (uint8_t)value;
-        else if (loplen == 2)
-            *(uint16_t*)left = (uint16_t)value;
-        else if (loplen == 4)
-            *(uint32_t*)left = (uint32_t)value;
-        else if (loplen == 8)
-            *(uint64_t*)left = value;
-        
-        // POP does not affect flags in x86
-    } else
-        bugDetected("Unknown Archtecture");
+    }
     
-    return PROC_SUCCESS;
+    return NOT_FOUND;
 }
 
 ProcessorResult load_effective_address(uintptr_t left, unsigned int loplen, uintptr_t right, int roplen) {
