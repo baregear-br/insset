@@ -23,7 +23,6 @@
 #include <fstream>
 #include <iomanip>
 #include <map>
-#include <LIEF/LIEF.hpp>
 #include <algorithm>
 #include <threading.h>
 #include <unistd.h>
@@ -44,6 +43,9 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FormattedStream.h>
 #include <llvm/TargetParser/Host.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Object/ELFObjectFile.h>
+#include <llvm/Support/MemoryBuffer.h>
 
 #include <dynvar.h>
 #include <runtime.h>
@@ -521,24 +523,62 @@ extern "C" {
         vectorInit(&pushedFunction, sizeof(currentFunction));
         static lgr bufr = {0};
         getValue(source, &bufr);
-        std::unique_ptr<LIEF::ELF::Binary> bin = LIEF::ELF::Parser::parse(bufr);
-        if (!bin) {
+        
+        // Load ELF file using LLVM Object library
+        auto fileBufferOrErr = llvm::MemoryBuffer::getFile(bufr);
+        if (!fileBufferOrErr) {
             std::cerr << "Cannot Analyze The Library From " << bufr << std::endl;
             exit(1);
         }
+        
+        auto objFileOrErr = llvm::object::ObjectFile::createObjectFile(fileBufferOrErr.get()->getMemBufferRef());
+        if (!objFileOrErr) {
+            std::cerr << "Cannot parse ELF file from " << bufr << std::endl;
+            exit(1);
+        }
+        
+        llvm::object::ObjectFile* objFile = objFileOrErr.get().get();
+        auto* elfFile = llvm::dyn_cast<llvm::object::ELFObjectFileBase>(objFile);
+        if (!elfFile) {
+            std::cerr << bufr << " is not an ELF file." << std::endl;
+            exit(1);
+        }
 
-        const auto* text = bin->get_section(".text");
-        if (!text) {
-            std::cerr << bufr << " is Useless." << std::endl;
+        // Find .text section
+        uintptr_t textStart = 0;
+        uintptr_t textSize = 0;
+        for (const auto& section : elfFile->sections()) {
+            llvm::Expected<llvm::StringRef> nameOrErr = section.getName();
+            if (nameOrErr && nameOrErr.get() == ".text") {
+                textStart = section.getAddress();
+                textSize = section.getSize();
+                break;
+            }
+        }
+        
+        if (textSize == 0) {
+            std::cerr << bufr << " is Useless (no .text section)." << std::endl;
             return result;
         }
 
+        // Find symbol by name
         getValue(functionName, &bufr);
-        auto* sym = bin->get_symbol(bufr);
-        if (!sym) {
+        std::string symName(bufr);
+        uintptr_t symValue = 0;
+        
+        for (const auto& sym : elfFile->symbols()) {
+            llvm::Expected<llvm::StringRef> nameOrErr = sym.getName();
+            llvm::Expected<uint64_t> addrOrErr = sym.getAddress();
+            if (nameOrErr && addrOrErr && nameOrErr.get() == symName) {
+                symValue = addrOrErr.get();
+                break;
+            }
+        }
+        
+        if (symValue == 0) {
             lgr libpath = {0};
             getValue(source, &libpath);
-            std::cerr << bufr << " Is Not Found From " << libpath
+            std::cerr << symName << " Is Not Found From " << libpath
                       << " But Required." << std::endl;
             exit(1);
         }
@@ -587,30 +627,13 @@ extern "C" {
             bugDetected(msg);
             free(msg);
         }
-        std::string sbufr;
-        {
-            lgr bufr;
-            getValue(source, &bufr);
-            sbufr = bufr;
-        }
+        // Get the file content from the MemoryBuffer
+        llvm::StringRef fileContent = fileBufferOrErr.get()->getBuffer();
+        llvm::ArrayRef<uint8_t> bytes(reinterpret_cast<const uint8_t*>(fileContent.data()),
+                                       fileContent.size());
 
-        std::ifstream file(sbufr);
-        if (!file.is_open()) {
-            lgr libpath = {0};
-            getValue(source, &libpath);
-            std::cerr << "Cannot Open " << sbufr << " But Required." << std::endl;
-            exit(1);
-        }
-        sbufr = "";
-        std::vector<uint8_t> pbufr;
-        while (std::getline(file, sbufr))
-            for (char ch : sbufr)
-                pbufr.push_back(static_cast<uint8_t>(ch));
-
-        currentFunction = (uintptr_t)sym->value();
-        const uintptr_t textStart = text->virtual_address();
-        const uintptr_t textEnd = textStart + text->size();
-        llvm::ArrayRef<uint8_t> bytes(pbufr);
+        currentFunction = symValue;
+        const uintptr_t textEnd = textStart + textSize;
         uint64_t size = 0;
         
         for (uintptr_t addr = currentFunction; addr < textEnd; addr += size) {
