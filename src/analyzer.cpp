@@ -67,8 +67,32 @@ struct InstructionNode : AST {
 
 struct ValueNode : AST {
     dynvar value;
-    ValueNode(dynvar vl) : value(std::move(vl)) { }
+    uintptr_t orgAddress;
+    /*
+     * Agent: GitHub Copilot
+     * LLM: GPT-5.6 Luna
+     */
+    ValueNode(dynvar vl, uintptr_t address) : value(std::move(vl)), orgAddress(address) { }
 };
+
+/*
+ * Agent: GitHub Copilot
+ * LLM: GPT-5.6 Luna
+ */
+
+static AST* getOperandNode(vector* operands, int index) {
+    lgr operandBuffer;
+    vectorGetValue(operands, index, &operandBuffer);
+    AST* node = nullptr;
+    memcpy(&node, operandBuffer, sizeof(AST*));
+    return node;
+}
+
+static void assignValueNode(ValueNode* destination, ValueNode* source) {
+    lgr valueBuffer;
+    getValue(source->value, &valueBuffer);
+    setValue(&destination->value, valueBuffer);
+}
 
 typedef struct {
     ProcessorResult res;
@@ -78,7 +102,13 @@ typedef struct {
 typedef struct {
     InstructionNode* node;
     AST* targvar;
+    int thrid;
 } InstructionQueue;
+
+typedef struct {
+    dynvar value;
+    void* addr;
+} ValueAddressPair;
 
 static vector instructionQueues;
 static vector executionTasks;
@@ -86,6 +116,55 @@ std::map<AST*, std::pair<bool, int>> cachedSteps;
 static int lockout = -1;
 static LLVMArch carch;
 static vector processorResults;
+static vector simval;
+/*
+ * Agent: GitHub Copilot
+ * LLM: GPT-5.6 Luna
+ */
+
+static ValueAddressPair* findSimValue(uintptr_t address, ValueAddressPair* result) {
+    for (unsigned int index = 0; index < simval.count; ++index) {
+        lgr valueBuffer;
+        vectorGetValue(&simval, index, &valueBuffer);
+        ValueAddressPair pair;
+        memcpy(&pair, valueBuffer, sizeof(ValueAddressPair));
+        if ((uintptr_t)pair.addr == address) {
+            *result = pair;
+            return result;
+        }
+    }
+    return nullptr;
+}
+
+static void appendSimValue(ValueNode* valueNode) {
+    ValueAddressPair pair;
+    pair.value = valueNode->value;
+    pair.addr = (void*)valueNode->orgAddress;
+    lgr valueBuffer = {0};
+    memcpy(valueBuffer, &pair, sizeof(ValueAddressPair));
+    vectorAppend(&simval, valueBuffer);
+}
+
+static void updateSimValue(ValueNode* valueNode) {
+    ValueAddressPair pair;
+    if (!findSimValue(valueNode->orgAddress, &pair))
+        return;
+
+    lgr valueBuffer = {0};
+    getValue(valueNode->value, &valueBuffer);
+    setValue(&pair.value, valueBuffer);
+
+    for (unsigned int index = 0; index < simval.count; ++index) {
+        lgr pairBuffer;
+        vectorGetValue(&simval, index, &pairBuffer);
+        ValueAddressPair currentPair;
+        memcpy(&currentPair, pairBuffer, sizeof(ValueAddressPair));
+        if (currentPair.addr == pair.addr) {
+            memcpy(VECTOR_FORMULA(&simval, index), &pair, sizeof(ValueAddressPair));
+            break;
+        }
+    }
+}
 
 dynvar evalResult(AST* node) {
     dynvar result;
@@ -107,11 +186,15 @@ dynvar evalResult(AST* node) {
                     lgr leftOpBuffer;
                     vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    /*
+                     * Agent: GitHub Copilot
+                     * LLM: GPT-5.6 Luna
+                     */
+                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
                     lgr rightOpBuffer;
                     vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -163,14 +246,18 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    /*
+                     * Agent: GitHub Copilot
+                     * LLM: GPT-5.6 Luna
+                    */
                     lgr leftOpBuffer;
                     vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
                     lgr rightOpBuffer;
                     vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -223,14 +310,18 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    /*
+                     * Agent: GitHub Copilot
+                     * LLM: GPT-5.6 Luna
+                    */
                     lgr leftOpBuffer;
                     vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
                     lgr rightOpBuffer;
                     vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -282,14 +373,18 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
+                    /*
+                     * Agent: GitHub Copilot
+                     * LLM: GPT-5.6 Luna
+                    */
                     lgr leftOpBuffer;
                     vectorGetValue(instr->operand, 0, &leftOpBuffer);
                     lgr leftOp;
-                    getValue(evalResult((AST*)leftOpBuffer), &leftOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
                     lgr rightOpBuffer;
                     vectorGetValue(instr->operand, 1, &rightOpBuffer);
                     lgr rightOp;
-                    getValue(evalResult((AST*)rightOpBuffer), &rightOp);
+                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
 
                     if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
                         ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
@@ -511,6 +606,13 @@ extern "C" {
         vectorInit(&instructionQueues, sizeof(int));
         vectorInit(&executionTasks, sizeof(int));
         vectorInit(&processorResults, sizeof(OperationResult));
+        /*
+        * Agent: GitHub Copilot
+        * LLM: GPT-5.6 Luna
+        */
+
+        vectorInit(&simval, sizeof(ValueAddressPair));
+        carch = arch;
     }
 
     analyzedResult analyzeFunction(dynvar functionName, dynvar source) {
@@ -649,24 +751,49 @@ extern "C" {
             if (status == llvm::MCDisassembler::Success) {
                 CommonOperator op = mapLLVMOpcodeToOperator(inst.getOpcode(), MII.get());
                 
+                /*
+                 * Agent: GitHub Copilot
+                 * LLM: GPT-5.6 Luna
+                 */
                 vector* operands = new vector();
-                vectorInit(operands, sizeof(uintptr_t));
+                vectorInit(operands, sizeof(AST*));
                 
                 for (unsigned opIdx = 0; opIdx < inst.getNumOperands(); ++opIdx) {
                     const llvm::MCOperand &operand = inst.getOperand(opIdx);
+                    /*
+                     * Agent: GitHub Copilot
+                     * LLM: GPT-5.6 Luna
+                     */
                     uintptr_t operandValue = 0;
+                    std::string operandText = "0";
 
                     if (operand.isReg()) {
                         operandValue = operand.getReg();
+                        operandText = std::to_string(operandValue);
                         llvm::outs() << "Reg: " << MRI->getName(operand.getReg()) << "\n";
                     } else if (operand.isImm()) {
-                        operandValue = operand.getImm();
+                        const int64_t immediate = operand.getImm();
+                        operandValue = (uintptr_t)immediate;
+                        operandText = std::to_string(immediate);
                         llvm::outs() << "Imm: " << operand.getImm() << "\n";
                     } else if (operand.isExpr())
                         llvm::outs() << "Expr\n";
-                    
-                    lgr operandBuf;
-                    memcpy(operandBuf, &operandValue, sizeof(uintptr_t));
+
+                    ValueNode* operandNode = nullptr;
+                    ValueAddressPair pair;
+                    if (operand.isReg() && findSimValue(operandValue, &pair))
+                        operandNode = new ValueNode(pair.value, operandValue);
+                    if (operandNode == nullptr) {
+                        dynvar value = {0, 0};
+                        lgr initialValue = {0};
+                        std::strncpy(initialValue, operandText.c_str(), sizeof(initialValue) - 1);
+                        setValue(&value, initialValue);
+                        operandNode = new ValueNode(value, operandValue);
+                        if (operand.isReg())
+                            appendSimValue(operandNode);
+                    }
+                    lgr operandBuf = {0};
+                    memcpy(operandBuf, &operandNode, sizeof(AST*));
                     vectorAppend(operands, operandBuf);
                 }
                 
@@ -686,7 +813,12 @@ extern "C" {
                     inqueue.node = instrNode;
                     lgr tvarBuffer;
                     vectorGetValue(instrNode->operand, 0, &tvarBuffer);
-                    AST* tvar = (AST*)tvarBuffer;
+                    /*
+                     * Agent: GitHub Copilot
+                     * LLM: GPT-5.6 Luna
+                     */
+                    AST* tvar = nullptr;
+                    memcpy(&tvar, tvarBuffer, sizeof(AST*));
                     inqueue.targvar = tvar;
                     int threadID = threadNew(handleRealtimeOperation, &inqueue);
                     if (threadID < 0)
@@ -697,6 +829,44 @@ extern "C" {
                         vectorAppend(&instructionQueues, threadIDBuffer);
                         threadDetach(threadID);
                     }
+                } else if  (instrNode->ioperator == MOV) {
+                    if (carch == x86 || carch == x86_64) {
+                        if (instrNode->operand->count != 2) {
+                            std::cerr << "Ilegal Instruction." << std::endl;
+                            exit(1);
+                        }
+
+                        lgr bufr;
+                        vectorGetValue(instrNode->operand, 0, &bufr);
+                        /*
+                         * Agent: GitHub Copilot
+                         * LLM: GPT-5.6 Luna
+                         */
+                        AST* tvar = nullptr;
+                        memcpy(&tvar, bufr, sizeof(AST*));
+                        vectorGetValue(instrNode->operand, 1, &bufr);
+                        AST* value = nullptr;
+                        memcpy(&value, bufr, sizeof(AST*));
+                        for (int i = 0; i < (instructionQueues.count - 1); i++) {
+                            vectorGetValue(&instructionQueues, i, &bufr);
+                            InstructionQueue insQueue;
+                            memcpy(&insQueue, bufr, sizeof(InstructionQueue));
+                            if (auto val = dynamic_cast<ValueNode*>(insQueue.targvar))
+                                if (auto target = dynamic_cast<ValueNode*>(tvar))
+                                if (val->orgAddress == target->orgAddress) {
+                                    while (insQueue.thrid >= 0)
+                                        usleep(2000);
+
+                                    value = val;
+                                    break;
+                                }
+                        }
+                        
+                        auto destination = dynamic_cast<ValueNode*>(tvar);
+                        auto source = dynamic_cast<ValueNode*>(value);
+                        if (destination && source)
+                            continue;
+                    }
                 }
             }
         }
@@ -706,12 +876,25 @@ extern "C" {
         for (AST* node : nodes) {
             InstructionNode* instrNode = static_cast<InstructionNode*>(node);
             if (instrNode->operand) {
+                /*
+                 * Agent: GitHub Copilot
+                 * LLM: GPT-5.6 Luna
+                 */
+                for (unsigned int index = 0; index < instrNode->operand->count; ++index) {
+                    AST* operandNode = getOperandNode(instrNode->operand, index);
+                    delete operandNode;
+                }
                 vectorDeleteAll(instrNode->operand);
                 delete instrNode->operand;
             }
             delete instrNode;
         }
 
+        /*
+         * Agent: GitHub Copilot
+         * LLM: GPT-5.6 Luna
+         */
+        vectorDeleteAll(&simval);
         return result;
     }
 }
