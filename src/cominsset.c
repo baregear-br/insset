@@ -69,10 +69,6 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         if (loplen < roplen)
             return PROC_BUFFER_OVERFLOW;
@@ -89,10 +85,6 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         if (loplen < roplen)
             return PROC_BUFFER_OVERFLOW;
@@ -119,10 +111,6 @@ ProcessorResult add(uintptr_t left, unsigned int loplen, uintptr_t right, int ro
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform addition based on operand size
         uint64_t result = 0;
@@ -220,10 +208,6 @@ ProcessorResult add(uintptr_t left, unsigned int loplen, uintptr_t right, int ro
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform addition based on operand size
         uint64_t result = 0;
@@ -331,10 +315,6 @@ ProcessorResult subtract(uintptr_t left, unsigned int loplen, uintptr_t right, i
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform subtraction based on operand size
         uint64_t result = 0;
@@ -431,10 +411,6 @@ ProcessorResult subtract(uintptr_t left, unsigned int loplen, uintptr_t right, i
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform subtraction based on operand size
         uint64_t result = 0;
@@ -541,10 +517,6 @@ ProcessorResult multiply(uintptr_t left, unsigned int loplen, uintptr_t right, i
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform multiplication based on operand size
         uint64_t result = 0;
@@ -642,10 +614,6 @@ ProcessorResult multiply(uintptr_t left, unsigned int loplen, uintptr_t right, i
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform multiplication based on operand size
         uint64_t result = 0;
@@ -753,10 +721,6 @@ ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Check for division by zero
         if ((roplen == 1 && *(uint8_t*)right == 0) || (loplen == 1 && *(uint8_t*)left == 0))
@@ -832,10 +796,6 @@ ProcessorResult divide(uintptr_t left, unsigned int loplen, uintptr_t right, int
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Check for division by zero
         if ((roplen == 1 && *(uint8_t*)right == 0) || (loplen == 1 && *(uint8_t*)left == 0))
@@ -921,10 +881,6 @@ ProcessorResult compare(uintptr_t left, unsigned int loplen, uintptr_t right, in
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform comparison based on operand size (subtraction without storing result)
         uint64_t result = 0;
@@ -1017,10 +973,6 @@ ProcessorResult compare(uintptr_t left, unsigned int loplen, uintptr_t right, in
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform comparison based on operand size (subtraction without storing result)
         uint64_t result = 0;
@@ -1122,8 +1074,6 @@ ProcessorResult increment(uintptr_t left, unsigned int loplen) {
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
         
         // Perform increment based on operand size
         uint64_t result = 0;
@@ -1203,8 +1153,6 @@ ProcessorResult increment(uintptr_t left, unsigned int loplen) {
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
 
         // Perform increment based on operand size
         uint64_t result = 0;
@@ -1293,8 +1241,6 @@ ProcessorResult decrement(uintptr_t left, unsigned int loplen) {
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
         
         // Perform decrement based on operand size
         uint64_t result = 0;
@@ -1374,8 +1320,6 @@ ProcessorResult decrement(uintptr_t left, unsigned int loplen) {
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
 
         // Perform decrement based on operand size
         uint64_t result = 0;
@@ -1465,10 +1409,6 @@ ProcessorResult lgAnd(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform AND based on operand size
         uint64_t result = 0;
@@ -1530,10 +1470,6 @@ ProcessorResult lgAnd(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform AND based on operand size
         uint64_t result = 0;
@@ -1605,10 +1541,6 @@ ProcessorResult lgOr(uintptr_t left, unsigned int loplen, uintptr_t right, int r
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform OR based on operand size
         uint64_t result = 0;
@@ -1670,10 +1602,6 @@ ProcessorResult lgOr(uintptr_t left, unsigned int loplen, uintptr_t right, int r
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform OR based on operand size
         uint64_t result = 0;
@@ -1745,10 +1673,6 @@ ProcessorResult lgXor(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform XOR based on operand size
         uint64_t result = 0;
@@ -1810,10 +1734,6 @@ ProcessorResult lgXor(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform XOR based on operand size
         uint64_t result = 0;
@@ -1885,8 +1805,6 @@ ProcessorResult lgNot(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
         
         // Perform NOT based on operand size
         uint64_t result = 0;
@@ -1944,8 +1862,6 @@ ProcessorResult lgNot(uintptr_t left, unsigned int loplen, uintptr_t right, int 
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
 
         // Perform NOT based on operand size
         uint64_t result = 0;
@@ -2012,10 +1928,6 @@ ProcessorResult shift_left(uintptr_t left, unsigned int loplen, uintptr_t right,
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Get shift count (mask to operand size)
         uint64_t shift_count = 0;
@@ -2126,10 +2038,6 @@ ProcessorResult shift_left(uintptr_t left, unsigned int loplen, uintptr_t right,
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Get shift count (mask to operand size)
         uint64_t shift_count = 0;
@@ -2249,10 +2157,6 @@ ProcessorResult shift_right(uintptr_t left, unsigned int loplen, uintptr_t right
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Get shift count (mask to operand size)
         uint64_t shift_count = 0;
@@ -2363,10 +2267,6 @@ ProcessorResult shift_right(uintptr_t left, unsigned int loplen, uintptr_t right
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Get shift count (mask to operand size)
         uint64_t shift_count = 0;
@@ -2534,8 +2434,6 @@ ProcessorResult load_effective_address(uintptr_t left, unsigned int loplen, uint
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
         
         // LEA stores the address (right) into the destination (left)
         // For simplicity, we treat right as the effective address to load
@@ -2548,8 +2446,6 @@ ProcessorResult load_effective_address(uintptr_t left, unsigned int loplen, uint
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
 
         // LEA stores the address (right) into the destination (left)
         if (loplen == 4)
@@ -2571,10 +2467,6 @@ ProcessorResult test_and(uintptr_t left, unsigned int loplen, uintptr_t right, i
     
     if (carch == x86_64) {
         x86_64_Registers* regs = (x86_64_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_64_Registers)))
-            x86_64_setupRegister(regs, right, &right, (unsigned int*)&roplen);
         
         // Perform AND operation but don't store result (TEST instruction)
         uint64_t result = 0;
@@ -2632,10 +2524,6 @@ ProcessorResult test_and(uintptr_t left, unsigned int loplen, uintptr_t right, i
     }
     else if (carch == x86) {
         x86_Registers* regs = (x86_Registers*)registers;
-        if (left >= (uintptr_t)registers && left <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, left, &left, &loplen);
-        if (right >= (uintptr_t)registers && right <= ((uintptr_t)registers + sizeof(x86_Registers)))
-            x86_setupRegister(regs, right, &right, (unsigned int*)&roplen);
 
         // Perform AND operation but don't store result (TEST instruction)
         uint64_t result = 0;

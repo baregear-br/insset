@@ -34,16 +34,7 @@ add_library(insset SHARED ${CMAKE_CURRENT_BINARY_DIR}/runtime.o dynvar.c cominss
 target_link_libraries(insset PRIVATE
     pthread
     -Wl,--start-group
-    /usr/lib/llvm-18/lib/libLLVMSupport.a
-    /usr/lib/llvm-18/lib/libLLVMMC.a
-    /usr/lib/llvm-18/lib/libLLVMMCDisassembler.a
-    /usr/lib/llvm-18/lib/libLLVMObject.a
-    /usr/lib/llvm-18/lib/libLLVMBinaryFormat.a
-    /usr/lib/llvm-18/lib/libLLVMTarget.a
-    /usr/lib/llvm-18/lib/libLLVMTargetParser.a
-    /usr/lib/llvm-18/lib/libLLVMX86Info.a
-    /usr/lib/llvm-18/lib/libLLVMX86Desc.a
-    /usr/lib/llvm-18/lib/libLLVMX86Disassembler.a
+    ${llvm_libs}
     -Wl,--end-group
 )
 target_include_directories(insset PRIVATE /usr/lib/llvm-18/include)

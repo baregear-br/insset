@@ -1,0 +1,19 @@
+{
+  "name": "insset",
+  "version-string": "1.0",
+  "dependencies": [
+    "capstone",
+    "llvm",
+    "nasm",
+    {
+      "name": "pkgconf",
+      "host": true
+    }
+  ],
+  "overrides": [
+    {
+      "name": "llvm",
+      "version": "18.1.8"
+    }
+  ],
+}

@@ -48,6 +48,18 @@ Vibecoded Line. For Example:
      * LLM: Claude 4 Sonnet
      */
 
+Multiple Agents And LLM Example
+
+.. code-block:: cpp
+
+    /*
+     * Agent: Corsor, GitHub Copilot, Devin, KiloCode
+     * LLM: Claude 4 Sonnet, Gemini 3.1 Pro, GPT-5.6 Luna, Claude Fable 5.1, Kimi K3
+     */
+
+Note: AI Model Is Not Required To Specify If You Send
+Prompt Like 'Remove Reference Of x Function' To AI Model
+
 4. Optimization And Performance
 -------------------------------
 

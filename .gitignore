@@ -14,7 +14,8 @@ CMakeUserPresets.json
 *_audio.h
 
 # Compiled Binary
-insset
+libinsset.so
+runtime.o
 *.so
 *.dll
 *.exe
@@ -25,6 +26,8 @@ build/
 *.msix
 *.msi
 *.AppImage
+*.o
+*.obj
 
 # Code Editor Files
 .vs/

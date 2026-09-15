@@ -127,7 +127,7 @@ typedef struct x86_Registers {
 
 } x86_Registers;
 
-void x86_setupRegister(x86_Registers* regs, uintptr_t addr, uintptr_t** op, unsigned int* oplen) {
+/* void x86_setupRegister(x86_Registers* regs, uintptr_t addr, uintptr_t** op, unsigned int* oplen) {
     uintptr_t offset = addr - (uintptr_t)regs;
     
     // General Purpose Registers (32-bit)
@@ -409,6 +409,6 @@ void x86_setupRegister(x86_Registers* regs, uintptr_t addr, uintptr_t** op, unsi
         snprintf(buf, sizeof(buf), "Invalid Register From 0x%lx", (uintptr_t)regs);
         bugDetected(buf);
     }
-}
+} */
 
 #endif // x86_INSSET

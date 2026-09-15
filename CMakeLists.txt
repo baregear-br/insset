@@ -8,11 +8,13 @@ endif()
 
 project(insset)
 set(APP_VERSION 1.0)
+set(CMAKE_CXX_STANDARD 20)
 
+find_package(LLVM REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIEF REQUIRED IMPORTED_TARGET lief)
 pkg_check_modules(CAPSTONE REQUIRED capstone)
 include_directories(${CAPSTONE_INCLUDE_DIRS})
+include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(include)
 
 add_subdirectory(src)
