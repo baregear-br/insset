@@ -53,28 +53,6 @@
 #include <definations.h>
 #include <insset/cominsset.h>
 
-struct AST {
-    virtual ~AST() {}
-};
-
-struct InstructionNode : AST {
-    CommonOperator ioperator;
-    vector* operand;
-
-    InstructionNode(CommonOperator op, vector* opr) : ioperator(std::move(op)),
-                                                      operand(std::move(opr)) { }
-};
-
-struct ValueNode : AST {
-    dynvar value;
-    uintptr_t orgAddress;
-    /*
-     * Agent: GitHub Copilot
-     * LLM: GPT-5.6 Luna
-     */
-    ValueNode(dynvar vl, uintptr_t address) : value(std::move(vl)), orgAddress(address) { }
-};
-
 /*
  * Agent: GitHub Copilot
  * LLM: GPT-5.6 Luna
@@ -105,22 +83,46 @@ typedef struct {
     int thrid;
 } InstructionQueue;
 
-typedef struct {
-    dynvar value;
-    void* addr;
-} ValueAddressPair;
-
 static vector instructionQueues;
 static vector executionTasks;
 std::map<AST*, std::pair<bool, int>> cachedSteps;
 static int lockout = -1;
 static LLVMArch carch;
 static vector processorResults;
-static vector simval;
+
+extern "C" {
+    vector simval;
+    vector memRegions;
+}
+
 /*
  * Agent: GitHub Copilot
  * LLM: GPT-5.6 Luna
  */
+
+static void appendSimValue(ValueNode* node) {
+    if (!node)
+        return;
+
+    ValueAddressPair pair;
+    pair.addr = node->orgAddress;
+    pair.value = node->value;
+
+    lgr valueBuffer = {0};
+    memcpy(valueBuffer, &pair, sizeof(ValueAddressPair));
+    vectorAppend(&simval, valueBuffer);
+}
+
+static void appendSimValue(ValueNode* node, lgr valueBuffer) {
+    if (!node)
+        return;
+
+    ValueAddressPair pair;
+    pair.addr = node->orgAddress;
+    pair.value = node->value;
+    memcpy(valueBuffer, &pair, sizeof(ValueAddressPair));
+    vectorAppend(&simval, valueBuffer);
+}
 
 static ValueAddressPair* findSimValue(uintptr_t address, ValueAddressPair* result) {
     for (unsigned int index = 0; index < simval.count; ++index) {
@@ -128,42 +130,12 @@ static ValueAddressPair* findSimValue(uintptr_t address, ValueAddressPair* resul
         vectorGetValue(&simval, index, &valueBuffer);
         ValueAddressPair pair;
         memcpy(&pair, valueBuffer, sizeof(ValueAddressPair));
-        if ((uintptr_t)pair.addr == address) {
+        if ((uintptr_t)pair.addr == (uintptr_t)address) {
             *result = pair;
             return result;
         }
     }
     return nullptr;
-}
-
-static void appendSimValue(ValueNode* valueNode) {
-    ValueAddressPair pair;
-    pair.value = valueNode->value;
-    pair.addr = (void*)valueNode->orgAddress;
-    lgr valueBuffer = {0};
-    memcpy(valueBuffer, &pair, sizeof(ValueAddressPair));
-    vectorAppend(&simval, valueBuffer);
-}
-
-static void updateSimValue(ValueNode* valueNode) {
-    ValueAddressPair pair;
-    if (!findSimValue(valueNode->orgAddress, &pair))
-        return;
-
-    lgr valueBuffer = {0};
-    getValue(valueNode->value, &valueBuffer);
-    setValue(&pair.value, valueBuffer);
-
-    for (unsigned int index = 0; index < simval.count; ++index) {
-        lgr pairBuffer;
-        vectorGetValue(&simval, index, &pairBuffer);
-        ValueAddressPair currentPair;
-        memcpy(&currentPair, pairBuffer, sizeof(ValueAddressPair));
-        if (currentPair.addr == pair.addr) {
-            memcpy(VECTOR_FORMULA(&simval, index), &pair, sizeof(ValueAddressPair));
-            break;
-        }
-    }
 }
 
 dynvar evalResult(AST* node) {
@@ -606,6 +578,7 @@ extern "C" {
         vectorInit(&instructionQueues, sizeof(int));
         vectorInit(&executionTasks, sizeof(int));
         vectorInit(&processorResults, sizeof(OperationResult));
+        vectorInit(&memRegions, sizeof(MemoryRegion));
         /*
         * Agent: GitHub Copilot
         * LLM: GPT-5.6 Luna
@@ -613,13 +586,11 @@ extern "C" {
 
         vectorInit(&simval, sizeof(ValueAddressPair));
         carch = arch;
+        cinit(arch);
     }
 
-    analyzedResult analyzeFunction(dynvar functionName, dynvar source) {
-        analyzedResult result;
-        result.riskyValue = NULL;
-        result.valueBehavor = NULL;
-        vector pushedFunction;
+    vector analyzeFunction(dynvar functionName, dynvar source) {
+        vector result, pushedFunction;
         uintptr_t currentFunction;
 
         vectorInit(&pushedFunction, sizeof(currentFunction));
@@ -861,11 +832,8 @@ extern "C" {
                                     break;
                                 }
                         }
-                        
-                        auto destination = dynamic_cast<ValueNode*>(tvar);
-                        auto source = dynamic_cast<ValueNode*>(value);
-                        if (destination && source)
-                            continue;
+            
+                        // Will be Implemented
                     }
                 }
             }

@@ -19,7 +19,11 @@
 #ifndef ANALYZER_H
 #define ANALYZER_H
 
+#ifdef __cplusplus
+#include <utility>
+#endif
 #include <dynvar.h>
+#include <insset/cominsset.h>
 
 typedef enum {
     // Memory & Bounds Safety
@@ -89,11 +93,56 @@ typedef enum {
     TIMEOUT,
     CANCELLED,
     UNKNOWN_ERROR
+} syscallResult;
+
+typedef enum {
+    VARIABLE,
+    USEABLE_SPACE,
+    CODE_SEGMENT,
+    DATA_SEGMENT,
+    STACK_SEGMENT,
+    HEAP_SEGMENT,
+    DANGEROUS
+} MemoryRegionType;
+
+typedef struct {
+    dynvar name;
+    uintptr_t address;
+    long length;
+    MemoryRegionType type;
+} MemoryRegion;
+
+#ifdef __cplusplus
+struct AST {
+    virtual ~AST() {}
+};
+
+struct InstructionNode : AST {
+    CommonOperator ioperator;
+    vector* operand;
+
+    InstructionNode(CommonOperator op, vector* opr) : ioperator(std::move(op)),
+                                                      operand(std::move(opr)) { }
+};
+
+struct ValueNode : AST {
+    dynvar value;
+    uintptr_t orgAddress;
+    ValueNode(dynvar vl, uintptr_t address) : value(std::move(vl)), orgAddress(address) { }
+};
+#endif
+
+typedef struct {
+    vector value;
+    vector behavior;
+#ifdef __cplusplus
+    AST* operation;
+#endif
 } bhResult;
 
 typedef struct {
-    vector* riskyValue;
-    vector* valueBehavor;
-} analyzedResult;
+    dynvar value;
+    uintptr_t addr;
+} ValueAddressPair;
 
 #endif
