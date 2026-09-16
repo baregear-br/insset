@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'insset'
-copyright = '2026, First Person'
-author = 'First Person'
+copyright = '2026, Abdullah Al Nahian Raiyan'
+author = 'Abdullah Al Nahian Raiyan'
 release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------
