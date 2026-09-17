@@ -40,12 +40,18 @@ DYNVAR_CODE vectorAppend(vector* var, lgr data) {
     if (var->address == 0) {
         var->address = (uintptr_t)falloc(NULL, var->sizePerBlks);
         var->count = (uintptr_t)1;
+
+        if (var->address == (uintptr_t)0)
+            return OOM;
     } else {
+        uintptr_t prevAddr = var->address;
         var->count += (uintptr_t)1;
         var->address = (uintptr_t)frealloc((void*)var->address, (var->count - 1) * var->sizePerBlks, var->count * var->sizePerBlks);
+        if (var->address == (uintptr_t)0 || var->address == prevAddr)
+            return OOM;
     }
 
-    memcpy(VECTOR_FORMULA(var, var->count - 1), (void*)data, var->sizePerBlks);
+    memmove(VECTOR_FORMULA(var, var->count - 1), (void*)data, var->sizePerBlks);
     return DYNVAR_SUCCESS;
 }
 
@@ -97,8 +103,7 @@ void vectorDeleteAll(vector* var) {
 }
 
 DYNVAR_CODE setValue(dynvar* var, lgr value) {
-    size_t inputLength = strlen(value);
-    size_t copyLength = inputLength;
+    size_t copyLength = strlen(value);
 
     if (copyLength >= MAX_STACK_SIZE)
         copyLength = MAX_STACK_SIZE - 1;
@@ -120,7 +125,7 @@ DYNVAR_CODE setValue(dynvar* var, lgr value) {
 
     if (var->address != 0) {
         if (copyLength > 0)
-            memcpy((void*)var->address, (void*)value, copyLength);
+            memmove((void*)var->address, (void*)value, copyLength);
         ((char*)var->address)[copyLength] = '\0';
     }
 

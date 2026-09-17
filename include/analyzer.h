@@ -145,4 +145,11 @@ typedef struct {
     uintptr_t addr;
 } ValueAddressPair;
 
+typedef struct {
+    vector node;
+    int64_t answer;
+    unsigned char ready;
+    unsigned short hours, minutes, seconds;
+} cachedCalc;
+
 #endif

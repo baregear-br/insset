@@ -105,9 +105,7 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
         if (loplen < roplen)
             return PROC_BUFFER_OVERFLOW;
 
-        for (int i = 0; i < (valLen - 1); i++)
-            bufr[i] = 0;
-
+        memset((void*)bufr, 0, valLen - 1);
         for (int i = 0; i < (memRegions.count - 1); i++) {
             vectorGetValue(&memRegions, i, &bufr);
             MemoryRegion mreg;
@@ -120,9 +118,7 @@ ProcessorResult copy(uintptr_t left, unsigned int loplen, uintptr_t right, int r
                     return PROC_BUFFER_OVERFLOW;
 
                 memcpy((void*)left, (void*)right, roplen);
-                for (int i = roplen; i < (loplen - 1); i++)
-                    ((unsigned char*)left)[i] = 0;
-
+                memset((void*)left, roplen + 1, loplen);
                 return PROC_SUCCESS;
             }
         }

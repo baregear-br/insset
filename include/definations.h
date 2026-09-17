@@ -19,6 +19,8 @@
 #ifndef DEFINATIONS_H
 #define DEFINATIONS_H
 
+#define MAX_CACHE_TIMEOUT           (5 * 60) // in seconds
+
 #ifdef __cplusplus
 extern "C" {
 #endif

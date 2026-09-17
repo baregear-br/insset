@@ -89,6 +89,9 @@ std::map<AST*, std::pair<bool, int>> cachedSteps;
 static int lockout = -1;
 static LLVMArch carch;
 static vector processorResults;
+static vector cachedCalcs;
+static int ccLockout = -1;
+static int simvalLockout = -1;
 
 extern "C" {
     vector simval;
@@ -138,13 +141,78 @@ static ValueAddressPair* findSimValue(uintptr_t address, ValueAddressPair* resul
     return nullptr;
 }
 
-dynvar evalResult(AST* node) {
+static cachedCalc* findCachedCalc(AST* node, cachedCalc* result) {
+    for (unsigned int index = 0; index < cachedCalcs.count; ++index) {
+        lgr cacheBuffer;
+        vectorGetValue(&cachedCalcs, index, &cacheBuffer);
+        cachedCalc cache;
+        memcpy(&cache, cacheBuffer, sizeof(cachedCalc));
+        if (cache.node.count == 0)
+            continue;
+
+        lgr nodeBuffer;
+        vectorGetValue(&cache.node, 0, &nodeBuffer);
+        InstructionNode* cachedNode = nullptr;
+        memcpy(&cachedNode, nodeBuffer, sizeof(InstructionNode*));
+        if (cachedNode == node) {
+            *result = cache;
+            return result;
+        }
+    }
+    return nullptr;
+}
+
+static void cacheCalcResult(AST* node, dynvar value) {
+    cachedCalc cache = {0};
+    if (!findCachedCalc(node, &cache)) {
+        vectorInit(&cache.node, sizeof(InstructionNode*));
+        lgr nodeBuffer = {0};
+        memcpy(nodeBuffer, &node, sizeof(node));
+        vectorAppend(&cache.node, nodeBuffer);
+        cache.ready = false;
+
+        lgr cacheBuffer = {0};
+        memcpy(cacheBuffer, &cache, sizeof(cachedCalc));
+        vectorAppend(&cachedCalcs, cacheBuffer);
+    }
+
+    lgr valueBuffer = {0};
+    getValue(value, &valueBuffer);
+    memcpy(&cache.answer, valueBuffer,
+           value.length < sizeof(cache.answer) ? value.length : sizeof(cache.answer));
+    cache.ready = true;
+
+    for (unsigned int index = 0; index < cachedCalcs.count; ++index) {
+        lgr cacheBuffer;
+        vectorGetValue(&cachedCalcs, index, &cacheBuffer);
+        cachedCalc current;
+        memcpy(&current, cacheBuffer, sizeof(cachedCalc));
+        if (current.node.address == cache.node.address) {
+            memcpy(cacheBuffer, &cache, sizeof(cachedCalc));
+            return;
+        }
+    }
+}
+
+dynvar evalResult(AST* node, bool cachingMode) {
     dynvar result;
     result.address = 0;
     result.length = 0;
 
+    cachedCalc cached;
+    if (dynamic_cast<InstructionNode*>(node) && findCachedCalc(node, &cached) && cached.ready) {
+        lgr cachedValue = {0};
+        memcpy(cachedValue, &cached.answer, sizeof(cached.answer));
+        setValue(&result, cachedValue);
+        return result;
+    }
+
     if (auto instr = dynamic_cast<InstructionNode*>(node)) {
         if (instr->ioperator == ADD) {
+            ProcessorResult pres;
+            int64_t leftOp, rightOp;
+            int loplen, roplen;
+            dynvar var;
             switch (carch) {
                 case x86_64:
                 case x86:
@@ -155,59 +223,68 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
-                    lgr leftOpBuffer;
-                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
-                    lgr leftOp;
-                    /*
-                     * Agent: GitHub Copilot
-                     * LLM: GPT-5.6 Luna
-                     */
-                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
-                    lgr rightOpBuffer;
-                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
-                    lgr rightOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
+                    
+                    dynvar left = evalResult(getOperandNode(instr->operand, 0), cachingMode);
+                    var = left;
+                    loplen = var.length;
+                    if (loplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto add_end;
+                    }
+                    memcpy((void*)leftOp, (void*)var.address, loplen);
+                    
+                    var = evalResult(getOperandNode(instr->operand, 1), cachingMode);
+                    roplen = var.length;
+                    if (roplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto add_end;
+                    }
+                    memcpy((void*)rightOp, (void*)var.address, roplen);
 
-                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
-                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if ((leftOp > maxCalcValue || rightOp > maxCalcValue) ||
+                        (leftOp < ((maxCalcValue * -1) -1) || rightOp < ((maxCalcValue * -1) -1))) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto add_end;
                     }
 
-                    const ProcessorResult pres = add((uintptr_t)leftOp, sizeof(leftOp),
-                                                 (uintptr_t)rightOp, sizeof(rightOp),
-                                            emvec, emvec);
-                    if ((int64_t)leftOp > maxCalcValue) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if (cachingMode) {
+                        result = left;
+                        pres = add(result.address, loplen, (uintptr_t)rightOp,
+                                                     roplen, emvec, emvec);
+                        goto add_end;
+                        
+                    } else
+                        pres = add((uintptr_t)leftOp, loplen, (uintptr_t)rightOp,
+                                                        roplen, emvec, emvec);
+                    
+                    if (leftOp > maxCalcValue) {
+                        pres = PROC_BUFFER_OVERFLOW;
+                        goto add_end;
                     }
-
-                    OperationResult res;
-                    res.operation = node;
-                    res.res = pres;
-                    lgr bufr;
-                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                    vectorAppend(&processorResults, bufr);
-
-                    if (pres != PROC_SUCCESS)
-                        return result;
-                    setValue(&result, leftOp);
-                    return result;
-
                 /* default:
                     bugDetected("The Specified Architecture Is Not Supported"); */
             }
+add_end:
+            OperationResult res;
+            res.operation = node;
+            res.res = pres;
+            lgr bufr;
+            memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+            vectorAppend(&processorResults, bufr);
+
+            if (pres != PROC_SUCCESS)
+                return result;
+            memset((void*)bufr, 0, sizeof(OperationResult));
+            lgr resultValue = {0};
+            memcpy(resultValue, &leftOp, sizeof(leftOp));
+            setValue(&result, resultValue);
+            return result;
+
         } else if (instr->ioperator == SUB) {
+            ProcessorResult pres;
+            int64_t leftOp, rightOp;
+            int loplen, roplen;
+            dynvar var;
             switch (carch) {
                 case x86_64:
                 case x86:
@@ -218,60 +295,68 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
-                    /*
-                     * Agent: GitHub Copilot
-                     * LLM: GPT-5.6 Luna
-                    */
-                    lgr leftOpBuffer;
-                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
-                    lgr leftOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
-                    lgr rightOpBuffer;
-                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
-                    lgr rightOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
+                    
+                    dynvar left = evalResult(getOperandNode(instr->operand, 0), cachingMode);
+                    var = left;
+                    loplen = var.length;
+                    if (loplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto sub_end;
+                    }
+                    memcpy((void*)leftOp, (void*)var.address, loplen);
+                    
+                    var = evalResult(getOperandNode(instr->operand, 1), cachingMode);
+                    roplen = var.length;
+                    if (roplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto sub_end;
+                    }
+                    memcpy((void*)rightOp, (void*)var.address, roplen);
 
-                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
-                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if ((leftOp > maxCalcValue || rightOp > maxCalcValue) ||
+                        (leftOp < ((maxCalcValue * -1) -1) || rightOp < ((maxCalcValue * -1) -1))) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto sub_end;
                     }
 
-                    const ProcessorResult pres = subtract((uintptr_t)leftOp,
-                        sizeof(leftOp), (uintptr_t)rightOp, sizeof(rightOp),
-                                     emvec, emvec);
-                    if (((int64_t)leftOp > maxCalcValue) ||
-                        ((int64_t)leftOp > (maxCalcValue * -1))) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if (cachingMode) {
+                        result = left;
+                        pres = subtract(result.address, loplen, (uintptr_t)rightOp,
+                                                     roplen, emvec, emvec);
+                        goto sub_end;
+                        
+                    } else
+                        pres = subtract((uintptr_t)leftOp, loplen, (uintptr_t)rightOp,
+                                                        roplen, emvec, emvec);
+                    
+                    if (leftOp > maxCalcValue) {
+                        pres = PROC_BUFFER_OVERFLOW;
+                        goto sub_end;
                     }
-
-                    OperationResult res;
-                    res.operation = node;
-                    res.res = pres;
-                    lgr bufr;
-                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                    vectorAppend(&processorResults, bufr);
-
-                    if (pres != PROC_SUCCESS)
-                        return result;
-                    setValue(&result, leftOp);
-                    return result;
-
                 /* default:
                     bugDetected("The Specified Architecture Is Not Supported"); */
             }
+sub_end:
+            OperationResult res;
+            res.operation = node;
+            res.res = pres;
+            lgr bufr;
+            memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+            vectorAppend(&processorResults, bufr);
+
+            if (pres != PROC_SUCCESS)
+                return result;
+            memset((void*)bufr, 0, sizeof(OperationResult));
+            lgr resultValue = {0};
+            memcpy(resultValue, &leftOp, sizeof(leftOp));
+            setValue(&result, resultValue);
+            return result;
+
         } else if (instr->ioperator == MUL) {
+            ProcessorResult pres;
+            int64_t leftOp, rightOp;
+            int loplen, roplen;
+            dynvar var;
             switch (carch) {
                 case x86_64:
                 case x86:
@@ -282,59 +367,68 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
-                    /*
-                     * Agent: GitHub Copilot
-                     * LLM: GPT-5.6 Luna
-                    */
-                    lgr leftOpBuffer;
-                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
-                    lgr leftOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
-                    lgr rightOpBuffer;
-                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
-                    lgr rightOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
+                    
+                    dynvar left = evalResult(getOperandNode(instr->operand, 0), cachingMode);
+                    var = left;
+                    loplen = var.length;
+                    if (loplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto mul_end;
+                    }
+                    memcpy((void*)leftOp, (void*)var.address, loplen);
+                    
+                    var = evalResult(getOperandNode(instr->operand, 1), cachingMode);
+                    roplen = var.length;
+                    if (roplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto mul_end;
+                    }
+                    memcpy((void*)rightOp, (void*)var.address, roplen);
 
-                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
-                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if ((leftOp > maxCalcValue || rightOp > maxCalcValue) ||
+                        (leftOp < ((maxCalcValue * -1) -1) || rightOp < ((maxCalcValue * -1) -1))) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto mul_end;
                     }
 
-                    const ProcessorResult pres = multiply((uintptr_t)leftOp, sizeof(leftOp),
-                                                 (uintptr_t)rightOp, sizeof(rightOp),
-                                            emvec, emvec);
-                    if ((int64_t)leftOp > maxCalcValue) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if (cachingMode) {
+                        result = left;
+                        pres = multiply(result.address, loplen, (uintptr_t)rightOp,
+                                                     roplen, emvec, emvec);
+                        goto mul_end;
+                        
+                    } else
+                        pres = multiply((uintptr_t)leftOp, loplen, (uintptr_t)rightOp,
+                                                        roplen, emvec, emvec);
+                    
+                    if (leftOp > maxCalcValue) {
+                        pres = PROC_BUFFER_OVERFLOW;
+                        goto mul_end;
                     }
-
-                    OperationResult res;
-                    res.operation = node;
-                    res.res = pres;
-                    lgr bufr;
-                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                    vectorAppend(&processorResults, bufr);
-
-                    if (pres != PROC_SUCCESS)
-                        return result;
-                    setValue(&result, leftOp);
-                    return result;
-
                 /* default:
                     bugDetected("The Specified Architecture Is Not Supported"); */
             }
+mul_end:
+            OperationResult res;
+            res.operation = node;
+            res.res = pres;
+            lgr bufr;
+            memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+            vectorAppend(&processorResults, bufr);
+
+            if (pres != PROC_SUCCESS)
+                return result;
+            memset((void*)bufr, 0, sizeof(OperationResult));
+            lgr resultValue = {0};
+            memcpy(resultValue, &leftOp, sizeof(leftOp));
+            setValue(&result, resultValue);
+            return result;
+
         } else if (instr->ioperator == DIV) {
+            ProcessorResult pres;
+            int64_t leftOp, rightOp;
+            int loplen, roplen;
+            dynvar var;
             switch (carch) {
                 case x86_64:
                 case x86:
@@ -345,67 +439,66 @@ dynvar evalResult(AST* node) {
                     }
                     const int64_t maxCalcValue = carch == x86_64 ? 9223372036854775807 :
                                   (carch == x86 ? 2147483647 : 32767);
-                    /*
-                     * Agent: GitHub Copilot
-                     * LLM: GPT-5.6 Luna
-                    */
-                    lgr leftOpBuffer;
-                    vectorGetValue(instr->operand, 0, &leftOpBuffer);
-                    lgr leftOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 0)), &leftOp);
-                    lgr rightOpBuffer;
-                    vectorGetValue(instr->operand, 1, &rightOpBuffer);
-                    lgr rightOp;
-                    getValue(evalResult(getOperandNode(instr->operand, 1)), &rightOp);
+                    
+                    dynvar left = evalResult(getOperandNode(instr->operand, 0), cachingMode);
+                    var = left;
+                    loplen = var.length;
+                    if (loplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto div_end;
+                    } else 
+                    memcpy((void*)leftOp, (void*)var.address, loplen);
+                    
+                    var = evalResult(getOperandNode(instr->operand, 1), cachingMode);
+                    roplen = var.length;
+                    if (roplen > sizeof(int64_t)) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto div_end;
+                    }
+                    memcpy((void*)rightOp, (void*)var.address, roplen);
 
-                    if (((int32_t)((uintptr_t)leftOp) > maxCalcValue || (int32_t)((uintptr_t)rightOp) > maxCalcValue) ||
-                        ((int32_t)((uintptr_t)leftOp) > (maxCalcValue * -1) || (int32_t)((uintptr_t)rightOp) > (maxCalcValue * -1))) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
-                    } else if ((int32_t)((uintptr_t)leftOp) == 0 || (int32_t)((uintptr_t)rightOp) == 0) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_DIVISION_BY_ZERO;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if (leftOp == 0 || rightOp == 0) {
+                        pres = PROC_DIVISION_BY_ZERO;
+                        goto div_end;
+                    } else if ((leftOp > maxCalcValue || rightOp > maxCalcValue) ||
+                        (leftOp < ((maxCalcValue * -1) -1) || rightOp < ((maxCalcValue * -1) -1))) {
+                        pres = PROC_INTEGER_OVERFLOW;
+                        goto div_end;
                     }
 
-                    const ProcessorResult pres = divide((uintptr_t)leftOp,
-                        sizeof(leftOp), (uintptr_t)rightOp, sizeof(rightOp),
-                                     emvec, emvec);
-                    if (((int64_t)leftOp > maxCalcValue) ||
-                        ((int64_t)leftOp > (maxCalcValue * -1))) {
-                        OperationResult res;
-                        res.operation = node;
-                        res.res = PROC_BUFFER_OVERFLOW;
-                        lgr bufr;
-                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                        vectorAppend(&processorResults, bufr);
-                        return result;
+                    if (cachingMode) {
+                        result = left;
+                        pres = divide(result.address, loplen, (uintptr_t)rightOp,
+                                                     roplen, emvec, emvec);
+                        goto div_end;
+                        
+                    } else
+                        pres = divide((uintptr_t)leftOp, loplen, (uintptr_t)rightOp,
+                                                        roplen, emvec, emvec);
+                    
+                    if (leftOp > maxCalcValue) {
+                        pres = PROC_BUFFER_OVERFLOW;
+                        goto div_end;
                     }
-
-                    OperationResult res;
-                    res.operation = node;
-                    res.res = pres;
-                    lgr bufr;
-                    memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
-                    vectorAppend(&processorResults, bufr);
-
-                    if (pres != PROC_SUCCESS)
-                        return result;
-                    setValue(&result, leftOp);
-                    return result;
 
                 /* default:
                     bugDetected("The Specified Architecture Is Not Supported"); */
             }
+div_end:
+            OperationResult res;
+            res.operation = node;
+            res.res = pres;
+            lgr bufr;
+            memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+            vectorAppend(&processorResults, bufr);
+
+            if (pres != PROC_SUCCESS)
+                return result;
+            memset((void*)bufr, 0, sizeof(OperationResult));
+            lgr resultValue = {0};
+            memcpy(resultValue, &leftOp, sizeof(leftOp));
+            setValue(&result, resultValue);
+            return result;
         }
     } else if (auto valNode = dynamic_cast<ValueNode*>(node))
         return valNode->value;
@@ -418,8 +511,28 @@ void handleRealtimeOperation(void* arg) {
     InstructionQueue* queue = (InstructionQueue*)callbackArgs->originalArg;
     const int threadId = callbackArgs->threadId;
     int idx;
+    long cindx = -1;
+
+    dynvar value = evalResult(queue->node, true);
+    cacheCalcResult(queue->node, value);
+
+    if (queue->node->ioperator == ADD || queue->node->ioperator == SUB ||
+        queue->node->ioperator == MUL || queue->node->ioperator == DIV ||
+        queue->node->ioperator == INC || queue->node->ioperator == DEC) {
+            cachedCalc cc;
+            vectorInit(&cc.node, sizeof(InstructionNode*));
+            lgr bufr = {0};
+            memcpy(bufr, &queue->node, sizeof(queue->node));
+            while (ccLockout != threadId || ccLockout != -1) usleep(2000);
+            ccLockout = threadId;
+            if(vectorAppend(&cachedCalcs, bufr) == DYNVAR_SUCCESS) {
+                cindx = cachedCalcs.count - 1;
+                ccLockout = -1;
+            }
+        }
+
     while (true) {
-        while (lockout != threadId) usleep(2000);
+        while (lockout != threadId || lockout != -1) usleep(2000);
         lockout = threadId;
         if (cachedSteps.contains((AST*)queue))
             cachedSteps.find((AST*)queue)->second.second = threadId;
@@ -443,6 +556,55 @@ void handleRealtimeOperation(void* arg) {
 
 finalStep:
     lockout = -1;
+    value = evalResult(queue->node, true);
+    cacheCalcResult(queue->node, value);
+    
+    if (queue->node->ioperator == ADD || queue->node->ioperator == SUB ||
+        queue->node->ioperator == MUL || queue->node->ioperator == DIV ||
+        queue->node->ioperator == INC || queue->node->ioperator == DEC) {
+        switch (carch) {
+            case x86_64:
+            case x86:
+            case i8086:
+                if (queue->node->operand->count == 0) {
+                    std::cerr << "Ilegal Instruction." << std::endl;
+                    exit(1);
+                }
+
+                ValueNode* targetNode = nullptr;
+                lgr targetBuffer;
+                vectorGetValue(queue->node->operand, 0, &targetBuffer);
+                memcpy(&targetNode, targetBuffer, sizeof(ValueNode*));
+                
+                while (simvalLockout != threadId || simvalLockout == -1) usleep(2000);
+                simvalLockout = threadId;
+                for (int i; i < (simval.count - 1); i++) {
+                    lgr bufr;
+                    vectorGetValue(&simval, i, &bufr);
+                    ValueAddressPair vap;
+                    memcpy(&vap, bufr, sizeof(ValueAddressPair));
+                    if (vap.addr == targetNode->orgAddress) {
+                        if (!(targetNode->value.address == 0 || targetNode->value.length == 0)) {
+                            if (targetNode->value.length < vap.value.length) {
+                                OperationResult res;
+                                res.operation = queue->node;
+                                res.res = PROC_BUFFER_OVERFLOW;
+                                lgr bufr;
+                                memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                                vectorAppend(&processorResults, bufr);
+                                break;
+                            }
+                            memcpy((void*)vap.value.address, (void*)targetNode->value.address,
+                                   vap.value.length);
+                        } else
+                            memcpy((void*)vap.value.address, (void*)targetNode->orgAddress,
+                                   vap.value.length);
+                        memcpy(VECTOR_FORMULA(&simval, i), &vap, sizeof(ValueAddressPair));
+                        break;
+                    }
+                }
+        }
+    }
 }
 
 CommonOperator mapLLVMOpcodeToOperator(unsigned opcode, const llvm::MCInstrInfo* MII) {
@@ -579,6 +741,7 @@ extern "C" {
         vectorInit(&executionTasks, sizeof(int));
         vectorInit(&processorResults, sizeof(OperationResult));
         vectorInit(&memRegions, sizeof(MemoryRegion));
+        vectorInit(&cachedCalcs, sizeof(cachedCalc));
         /*
         * Agent: GitHub Copilot
         * LLM: GPT-5.6 Luna
@@ -800,7 +963,7 @@ extern "C" {
                         vectorAppend(&instructionQueues, threadIDBuffer);
                         threadDetach(threadID);
                     }
-                } else if  (instrNode->ioperator == MOV) {
+                } else if (instrNode->ioperator == MOV) {
                     if (carch == x86 || carch == x86_64) {
                         if (instrNode->operand->count != 2) {
                             std::cerr << "Ilegal Instruction." << std::endl;
@@ -824,16 +987,27 @@ extern "C" {
                             memcpy(&insQueue, bufr, sizeof(InstructionQueue));
                             if (auto val = dynamic_cast<ValueNode*>(insQueue.targvar))
                                 if (auto target = dynamic_cast<ValueNode*>(tvar))
-                                if (val->orgAddress == target->orgAddress) {
-                                    while (insQueue.thrid >= 0)
-                                        usleep(2000);
+                                    if (val->orgAddress == target->orgAddress) {
+                                        while (insQueue.thrid >= 0)
+                                            usleep(2000);
+                                        
+                                        ProcessorResult pres = copy((uintptr_t)target->orgAddress,
+                                                                    target->value.length, (uintptr_t)val->orgAddress,
+                                                                    val->value.length, emvec, emvec);
+                                        
+                                        OperationResult res;
+                                        res.operation = node;
+                                        res.res = pres;
+                                        lgr bufr;
+                                        memcpy((void*)bufr, (void*)&res, sizeof(OperationResult));
+                                        vectorAppend(&processorResults, bufr);
 
-                                    value = val;
-                                    break;
-                                }
+                                        break;
+                                    }
+                            
+                            if (i == instructionQueues.count - 1)
+                                bugDetected("Invalid Operand Node.");
                         }
-            
-                        // Will be Implemented
                     }
                 }
             }
