@@ -27,17 +27,29 @@ add_custom_command(
     COMMENT "Assembling runtime.asm with NASM (${NASM_FORMAT})"
 )
 
+find_package(LLVM REQUIRED CONFIG)
+llvm_map_components_to_libnames(INSSET_LLVM_LIBS
+    support
+    mc
+    mcdisassembler
+    object
+    binaryformat
+    target
+    targetparser
+    x86info
+    x86desc
+    x86disassembler
+)
+
 # Create shared library from object file and C source
 add_library(insset SHARED ${CMAKE_CURRENT_BINARY_DIR}/runtime.o dynvar.c cominsset.c threading.c analyzer.cpp)
 
 # Link with LLVM
 target_link_libraries(insset PRIVATE
     pthread
-    -Wl,--start-group
-    ${llvm_libs}
-    -Wl,--end-group
+    ${INSSET_LLVM_LIBS}
 )
-target_include_directories(insset PRIVATE /usr/lib/llvm-18/include)
+target_include_directories(insset PRIVATE ${LLVM_INCLUDE_DIRS})
 
 # Set optimization flags for maximum speed and lowest latency
 target_compile_options(insset PRIVATE
@@ -47,6 +59,10 @@ target_compile_options(insset PRIVATE
     -flto                  # Link-time optimization
     -ffast-math            # Fast math operations
     -funroll-loops         # Loop unrolling
+)
+
+set_target_properties(insset PROPERTIES
+    CXX_STANDARD_REQUIRED ON
 )
 
 # Enable link-time optimization

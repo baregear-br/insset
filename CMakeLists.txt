@@ -6,9 +6,11 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/vcpkg.json" AND NOT CMAKE_TOOLCHAIN_FILE)
     endif()
 endif()
 
-project(insset)
+project(insset LANGUAGES C CXX)
 set(APP_VERSION 1.0)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS ON)
 
 find_package(LLVM REQUIRED CONFIG)
 find_package(PkgConfig REQUIRED)
